@@ -28,6 +28,18 @@ type Lead = {
   next_follow_up?: string | null;
 };
 
+type Communication = {
+  id: number;
+  created_at: string;
+  lead_id: number;
+  channel: string;
+  direction: string;
+  recipient: string;
+  subject?: string | null;
+  message: string;
+  status: string;
+};
+
 const pipelineStages: PipelineStage[] = [
   "New",
   "Contacted",
@@ -41,6 +53,9 @@ export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  const [communications, setCommunications] = useState<Communication[]>([]);
+  const [communicationsLoading, setCommunicationsLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,37 +112,52 @@ export default function Home() {
     }
   }
 
-  async function handleAddLead(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  async function loadCommunications(leadId: number) {
+    try {
+      setCommunicationsLoading(true);
+
+      const response = await fetch(
+        `/api/communications?lead_id=${leadId}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Unable to load communication history."
+        );
+      }
+
+      setCommunications(result.communications || []);
+    } catch (error) {
+      console.error("Communication history error:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load communication history."
+      );
+    } finally {
+      setCommunicationsLoading(false);
+    }
+  }
+
+  async function handleAddLead(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const form = event.currentTarget;
     const formData = new FormData(form);
 
-    const name = String(
-      formData.get("name") || ""
-    ).trim();
-
-    const email = String(
-      formData.get("email") || ""
-    ).trim();
-
-    const interest = String(
-      formData.get("interest") || ""
-    ).trim();
-
-    const location = String(
-      formData.get("location") || ""
-    ).trim();
-
-    const budget = String(
-      formData.get("budget") || ""
-    );
-
-    const timeline = String(
-      formData.get("timeline") || ""
-    );
+    const name = String(formData.get("name") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const interest = String(formData.get("interest") || "").trim();
+    const location = String(formData.get("location") || "").trim();
+    const budget = String(formData.get("budget") || "");
+    const timeline = String(formData.get("timeline") || "");
 
     const score = calculateLeadScore({
       budget,
@@ -162,22 +192,15 @@ export default function Home() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          result.error || "Unable to save lead."
-        );
+        throw new Error(result.error || "Unable to save lead.");
       }
 
-      setLeads((current) => [
-        result.lead,
-        ...current,
-      ]);
+      setLeads((current) => [result.lead, ...current]);
 
       form.reset();
       setShowForm(false);
 
-      showSuccess(
-        "Lead successfully added and qualified."
-      );
+      showSuccess("Lead successfully added and qualified.");
     } catch (error) {
       console.error("Save lead error:", error);
 
@@ -194,9 +217,7 @@ export default function Home() {
   function openLead(lead: Lead) {
     const stage =
       lead.pipeline_stage &&
-      pipelineStages.includes(
-        lead.pipeline_stage
-      )
+      pipelineStages.includes(lead.pipeline_stage)
         ? lead.pipeline_stage
         : "New";
 
@@ -206,22 +227,21 @@ export default function Home() {
 
     setNextFollowUp(
       lead.next_follow_up
-        ? formatForDateTimeInput(
-            lead.next_follow_up
-          )
+        ? formatForDateTimeInput(lead.next_follow_up)
         : ""
     );
 
     setAiMessage("");
 
     setEmailSubject(
-      `Following up on your ${
-        lead.interest || "property"
-      } enquiry`
+      `Following up on your ${lead.interest || "property"} enquiry`
     );
 
+    setCommunications([]);
     setError("");
     setSuccessMessage("");
+
+    loadCommunications(lead.id);
   }
 
   function closeLead() {
@@ -229,9 +249,8 @@ export default function Home() {
     setNotes("");
     setNextFollowUp("");
     setAiMessage("");
-    setEmailSubject(
-      "Following up on your property enquiry"
-    );
+    setCommunications([]);
+    setEmailSubject("Following up on your property enquiry");
     setSelectedStage("New");
     setError("");
   }
@@ -246,91 +265,56 @@ export default function Home() {
       let followUpIso: string | null = null;
 
       if (nextFollowUp.trim() !== "") {
-        const parsedDate =
-          new Date(nextFollowUp);
+        const parsedDate = new Date(nextFollowUp);
 
-        if (
-          Number.isNaN(
-            parsedDate.getTime()
-          )
-        ) {
-          setError(
-            "Please select a valid follow-up date and time."
-          );
+        if (Number.isNaN(parsedDate.getTime())) {
+          setError("Please select a valid follow-up date and time.");
           return;
         }
 
-        followUpIso =
-          parsedDate.toISOString();
+        followUpIso = parsedDate.toISOString();
       }
 
-      const response = await fetch(
-        "/api/leads",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            id: selectedLead.id,
-            pipeline_stage:
-              selectedStage,
-            notes,
-            next_follow_up:
-              followUpIso,
-          }),
-        }
-      );
+      const response = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: selectedLead.id,
+          pipeline_stage: selectedStage,
+          notes,
+          next_follow_up: followUpIso,
+        }),
+      });
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          result.error ||
-            "Unable to update lead."
-        );
+        throw new Error(result.error || "Unable to update lead.");
       }
 
-      const updatedLead =
-        result.lead as Lead;
+      const updatedLead = result.lead as Lead;
 
       setLeads((current) =>
         current.map((lead) =>
-          lead.id === updatedLead.id
-            ? updatedLead
-            : lead
+          lead.id === updatedLead.id ? updatedLead : lead
         )
       );
 
       setSelectedLead(updatedLead);
-
-      setSelectedStage(
-        updatedLead.pipeline_stage ||
-          "New"
-      );
-
-      setNotes(
-        updatedLead.notes || ""
-      );
+      setSelectedStage(updatedLead.pipeline_stage || "New");
+      setNotes(updatedLead.notes || "");
 
       setNextFollowUp(
         updatedLead.next_follow_up
-          ? formatForDateTimeInput(
-              updatedLead.next_follow_up
-            )
+          ? formatForDateTimeInput(updatedLead.next_follow_up)
           : ""
       );
 
-      showSuccess(
-        "Lead updated successfully."
-      );
+      showSuccess("Lead updated successfully.");
     } catch (error) {
-      console.error(
-        "Update lead error:",
-        error
-      );
+      console.error("Update lead error:", error);
 
       setError(
         error instanceof Error
@@ -350,52 +334,35 @@ export default function Home() {
       setError("");
       setSuccessMessage("");
 
-      const response = await fetch(
-        "/api/ai-followup",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            name: selectedLead.name,
-            interest:
-              selectedLead.interest,
-            location:
-              selectedLead.location,
-            budget:
-              selectedLead.budget,
-            timeline:
-              selectedLead.timeline,
-            score: selectedLead.score,
-            status:
-              selectedLead.status,
-            pipeline_stage:
-              selectedStage,
-            notes,
-          }),
-        }
-      );
+      const response = await fetch("/api/ai-followup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: selectedLead.name,
+          interest: selectedLead.interest,
+          location: selectedLead.location,
+          budget: selectedLead.budget,
+          timeline: selectedLead.timeline,
+          score: selectedLead.score,
+          status: selectedLead.status,
+          pipeline_stage: selectedStage,
+          notes,
+        }),
+      });
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result.error ||
-            "Unable to generate AI follow-up."
+          result.error || "Unable to generate AI follow-up."
         );
       }
 
-      setAiMessage(
-        result.message || ""
-      );
+      setAiMessage(result.message || "");
     } catch (error) {
-      console.error(
-        "AI generation error:",
-        error
-      );
+      console.error("AI generation error:", error);
 
       setError(
         error instanceof Error
@@ -411,121 +378,70 @@ export default function Home() {
     if (!selectedLead) return;
 
     if (!aiMessage.trim()) {
-      setError(
-        "Generate or write a follow-up message before sending."
-      );
+      setError("Generate or write a follow-up message before sending.");
       return;
     }
 
     if (!emailSubject.trim()) {
-      setError(
-        "Please enter an email subject."
-      );
+      setError("Please enter an email subject.");
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        `Send this email to ${selectedLead.name} at ${selectedLead.email}?`
-      );
+    const confirmed = window.confirm(
+      `Send this email to ${selectedLead.name} at ${selectedLead.email}?`
+    );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
       setSendingEmail(true);
       setError("");
       setSuccessMessage("");
 
-      const response = await fetch(
-        "/api/send-followup",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            lead_id:
-              selectedLead.id,
+      const response = await fetch("/api/send-followup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          lead_id: selectedLead.id,
+          to: selectedLead.email,
+          name: selectedLead.name,
+          subject: emailSubject.trim(),
+          message: aiMessage.trim(),
+          pipeline_stage: selectedStage,
+        }),
+      });
 
-            to:
-              selectedLead.email,
-
-            name:
-              selectedLead.name,
-
-            subject:
-              emailSubject.trim(),
-
-            message:
-              aiMessage.trim(),
-
-            pipeline_stage:
-              selectedStage,
-          }),
-        }
-      );
-
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result.error ||
-            "Unable to send follow-up email."
+          result.error || "Unable to send follow-up email."
         );
       }
 
-      /*
-       * If the backend moved a New lead
-       * to Contacted, update our local UI.
-       */
       if (result.updatedLead) {
-        const updatedLead =
-          result.updatedLead as Lead;
+        const updatedLead = result.updatedLead as Lead;
 
         setLeads((current) =>
           current.map((lead) =>
-            lead.id ===
-            updatedLead.id
-              ? updatedLead
-              : lead
+            lead.id === updatedLead.id ? updatedLead : lead
           )
         );
 
-        setSelectedLead(
-          updatedLead
-        );
-
-        setSelectedStage(
-          updatedLead.pipeline_stage ||
-            "Contacted"
-        );
-
-        setNotes(
-          updatedLead.notes || notes
-        );
-
-        setNextFollowUp(
-          updatedLead.next_follow_up
-            ? formatForDateTimeInput(
-                updatedLead.next_follow_up
-              )
-            : nextFollowUp
-        );
+        setSelectedLead(updatedLead);
+        setSelectedStage(updatedLead.pipeline_stage || "Contacted");
       }
+
+      await loadCommunications(selectedLead.id);
 
       showSuccess(
         result.message ||
           `Follow-up email sent to ${selectedLead.name}.`
       );
     } catch (error) {
-      console.error(
-        "Send email error:",
-        error
-      );
+      console.error("Send email error:", error);
 
       setError(
         error instanceof Error
@@ -537,9 +453,7 @@ export default function Home() {
     }
   }
 
-  function showSuccess(
-    message: string
-  ) {
+  function showSuccess(message: string) {
     setSuccessMessage(message);
 
     setTimeout(() => {
@@ -550,39 +464,26 @@ export default function Home() {
   const stats = useMemo(() => {
     const total = leads.length;
 
-    const hot = leads.filter(
-      (lead) =>
-        lead.status === "Hot"
-    ).length;
+    const hot = leads.filter((lead) => lead.status === "Hot").length;
 
     const won = leads.filter(
-      (lead) =>
-        lead.pipeline_stage ===
-        "Won"
+      (lead) => lead.pipeline_stage === "Won"
     ).length;
 
     const overdue = leads.filter(
       (lead) =>
-        getFollowUpState(
-          lead.next_follow_up
-        ) === "Overdue"
+        getFollowUpState(lead.next_follow_up) === "Overdue"
     ).length;
 
-    const dueToday =
-      leads.filter(
-        (lead) =>
-          getFollowUpState(
-            lead.next_follow_up
-          ) === "Due Today"
-      ).length;
+    const dueToday = leads.filter(
+      (lead) =>
+        getFollowUpState(lead.next_follow_up) === "Due Today"
+    ).length;
 
-    const upcoming =
-      leads.filter(
-        (lead) =>
-          getFollowUpState(
-            lead.next_follow_up
-          ) === "Upcoming"
-      ).length;
+    const upcoming = leads.filter(
+      (lead) =>
+        getFollowUpState(lead.next_follow_up) === "Upcoming"
+    ).length;
 
     return {
       total,
@@ -630,13 +531,8 @@ export default function Home() {
         </h1>
 
         <p className="mt-3 max-w-3xl text-neutral-400">
-          Capture, qualify,
-          prioritize, schedule
-          follow-ups, generate
-          personalized AI
-          communication, and
-          contact prospects from
-          one dashboard.
+          Capture, qualify, prioritize, schedule follow-ups, generate
+          personalized AI communication, and track every customer interaction.
         </p>
 
         {error && (
@@ -652,47 +548,12 @@ export default function Home() {
         )}
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-          <StatCard
-            label="Total Leads"
-            value={String(
-              stats.total
-            )}
-          />
-
-          <StatCard
-            label="Hot Leads"
-            value={String(
-              stats.hot
-            )}
-          />
-
-          <StatCard
-            label="Overdue"
-            value={String(
-              stats.overdue
-            )}
-          />
-
-          <StatCard
-            label="Due Today"
-            value={String(
-              stats.dueToday
-            )}
-          />
-
-          <StatCard
-            label="Upcoming"
-            value={String(
-              stats.upcoming
-            )}
-          />
-
-          <StatCard
-            label="Won Deals"
-            value={String(
-              stats.won
-            )}
-          />
+          <StatCard label="Total Leads" value={String(stats.total)} />
+          <StatCard label="Hot Leads" value={String(stats.hot)} />
+          <StatCard label="Overdue" value={String(stats.overdue)} />
+          <StatCard label="Due Today" value={String(stats.dueToday)} />
+          <StatCard label="Upcoming" value={String(stats.upcoming)} />
+          <StatCard label="Won Deals" value={String(stats.won)} />
         </div>
 
         <div className="mt-10 overflow-hidden rounded-2xl border border-white/10">
@@ -703,9 +564,7 @@ export default function Home() {
               </h2>
 
               <p className="mt-1 text-sm text-neutral-500">
-                Click a lead to
-                manage follow-up
-                and communication.
+                Click a lead to manage follow-up and communication.
               </p>
             </div>
 
@@ -714,9 +573,7 @@ export default function Home() {
               disabled={loading}
               className="rounded-lg border border-white/10 px-4 py-2 text-sm text-neutral-400"
             >
-              {loading
-                ? "Loading..."
-                : "Refresh"}
+              {loading ? "Loading..." : "Refresh"}
             </button>
           </div>
 
@@ -724,8 +581,7 @@ export default function Home() {
             <div className="px-6 py-16 text-center text-neutral-500">
               Loading leads...
             </div>
-          ) : leads.length ===
-            0 ? (
+          ) : leads.length === 0 ? (
             <div className="px-6 py-16 text-center text-neutral-500">
               No leads yet.
             </div>
@@ -734,100 +590,57 @@ export default function Home() {
               <table className="w-full text-left">
                 <thead className="border-b border-white/10 bg-white/[0.02] text-xs uppercase tracking-wider text-neutral-500">
                   <tr>
-                    <th className="px-6 py-4">
-                      Lead
-                    </th>
-
-                    <th className="px-6 py-4">
-                      Interest
-                    </th>
-
-                    <th className="px-6 py-4">
-                      Score
-                    </th>
-
-                    <th className="px-6 py-4">
-                      Priority
-                    </th>
-
-                    <th className="px-6 py-4">
-                      Pipeline
-                    </th>
-
-                    <th className="px-6 py-4">
-                      Follow-up
-                    </th>
+                    <th className="px-6 py-4">Lead</th>
+                    <th className="px-6 py-4">Interest</th>
+                    <th className="px-6 py-4">Score</th>
+                    <th className="px-6 py-4">Priority</th>
+                    <th className="px-6 py-4">Pipeline</th>
+                    <th className="px-6 py-4">Follow-up</th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-white/10">
-                  {leads.map(
-                    (lead) => (
-                      <tr
-                        key={
-                          lead.id
-                        }
-                        onClick={() =>
-                          openLead(
-                            lead
-                          )
-                        }
-                        className="cursor-pointer transition hover:bg-white/[0.04]"
-                      >
-                        <td className="px-6 py-5">
-                          <p className="font-medium">
-                            {
-                              lead.name
-                            }
-                          </p>
+                  {leads.map((lead) => (
+                    <tr
+                      key={lead.id}
+                      onClick={() => openLead(lead)}
+                      className="cursor-pointer transition hover:bg-white/[0.04]"
+                    >
+                      <td className="px-6 py-5">
+                        <p className="font-medium">
+                          {lead.name}
+                        </p>
 
-                          <p className="mt-1 text-sm text-neutral-500">
-                            {
-                              lead.email
-                            }
-                          </p>
-                        </td>
+                        <p className="mt-1 text-sm text-neutral-500">
+                          {lead.email}
+                        </p>
+                      </td>
 
-                        <td className="px-6 py-5 text-sm text-neutral-300">
-                          {
-                            lead.interest
-                          }
-                        </td>
+                      <td className="px-6 py-5 text-sm text-neutral-300">
+                        {lead.interest}
+                      </td>
 
-                        <td className="px-6 py-5">
-                          {
-                            lead.score
-                          }{" "}
-                          / 100
-                        </td>
+                      <td className="px-6 py-5">
+                        {lead.score} / 100
+                      </td>
 
-                        <td className="px-6 py-5">
-                          <StatusBadge
-                            status={
-                              lead.status
-                            }
-                          />
-                        </td>
+                      <td className="px-6 py-5">
+                        <StatusBadge status={lead.status} />
+                      </td>
 
-                        <td className="px-6 py-5">
-                          <PipelineBadge
-                            stage={
-                              lead.pipeline_stage ||
-                              "New"
-                            }
-                          />
-                        </td>
+                      <td className="px-6 py-5">
+                        <PipelineBadge
+                          stage={lead.pipeline_stage || "New"}
+                        />
+                      </td>
 
-                        <td className="px-6 py-5">
-                          <FollowUpBadge
-                            date={
-                              lead.next_follow_up
-                            }
-                          />
-                        </td>
-                      </tr>
-                    )
-                  )}
+                      <td className="px-6 py-5">
+                        <FollowUpBadge
+                          date={lead.next_follow_up}
+                        />
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -844,11 +657,7 @@ export default function Home() {
               </h2>
 
               <button
-                onClick={() =>
-                  setShowForm(
-                    false
-                  )
-                }
+                onClick={() => setShowForm(false)}
                 className="text-sm text-neutral-400"
               >
                 Close
@@ -856,9 +665,7 @@ export default function Home() {
             </div>
 
             <form
-              onSubmit={
-                handleAddLead
-              }
+              onSubmit={handleAddLead}
               className="mt-8 grid gap-5"
             >
               <FormField
@@ -895,32 +702,21 @@ export default function Home() {
                 defaultValue=""
                 className="rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
               >
-                <option
-                  value=""
-                  disabled
-                >
+                <option value="" disabled>
                   Select budget
                 </option>
-
                 <option value="Under $50,000">
                   Under $50,000
                 </option>
-
                 <option value="$50,000 – $100,000">
-                  $50,000 –
-                  $100,000
+                  $50,000 – $100,000
                 </option>
-
                 <option value="$100,000 – $250,000">
-                  $100,000 –
-                  $250,000
+                  $100,000 – $250,000
                 </option>
-
                 <option value="$250,000 – $500,000">
-                  $250,000 –
-                  $500,000
+                  $250,000 – $500,000
                 </option>
-
                 <option value="$500,000+">
                   $500,000+
                 </option>
@@ -932,29 +728,20 @@ export default function Home() {
                 defaultValue=""
                 className="rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
               >
-                <option
-                  value=""
-                  disabled
-                >
+                <option value="" disabled>
                   Select timeline
                 </option>
-
                 <option value="Within 30 days">
-                  Within 30
-                  days
+                  Within 30 days
                 </option>
-
                 <option value="1–3 months">
                   1–3 months
                 </option>
-
                 <option value="3–6 months">
                   3–6 months
                 </option>
-
                 <option value="Just researching">
-                  Just
-                  researching
+                  Just researching
                 </option>
               </select>
 
@@ -963,9 +750,7 @@ export default function Home() {
                 disabled={saving}
                 className="rounded-lg bg-white px-5 py-3 font-semibold text-black disabled:opacity-50"
               >
-                {saving
-                  ? "Saving..."
-                  : "Qualify & Add Lead"}
+                {saving ? "Saving..." : "Qualify & Add Lead"}
               </button>
             </form>
           </div>
@@ -973,8 +758,8 @@ export default function Home() {
       )}
 
       {selectedLead && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6">
-          <div className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900 p-8">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 px-4 py-6">
+          <div className="mx-auto w-full max-w-6xl rounded-2xl border border-white/10 bg-neutral-900 p-8">
             <div className="flex items-start justify-between gap-6">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
@@ -982,15 +767,11 @@ export default function Home() {
                 </p>
 
                 <h2 className="mt-2 text-3xl font-semibold">
-                  {
-                    selectedLead.name
-                  }
+                  {selectedLead.name}
                 </h2>
 
                 <p className="mt-2 text-neutral-400">
-                  {
-                    selectedLead.email
-                  }
+                  {selectedLead.email}
                 </p>
               </div>
 
@@ -1006,30 +787,22 @@ export default function Home() {
               <div className="space-y-4">
                 <DetailCard
                   label="Property Interest"
-                  value={
-                    selectedLead.interest
-                  }
+                  value={selectedLead.interest}
                 />
 
                 <DetailCard
                   label="Location"
-                  value={
-                    selectedLead.location
-                  }
+                  value={selectedLead.location}
                 />
 
                 <DetailCard
                   label="Budget"
-                  value={
-                    selectedLead.budget
-                  }
+                  value={selectedLead.budget}
                 />
 
                 <DetailCard
                   label="Timeline"
-                  value={
-                    selectedLead.timeline
-                  }
+                  value={selectedLead.timeline}
                 />
 
                 <div className="rounded-xl border border-white/10 p-5">
@@ -1039,21 +812,14 @@ export default function Home() {
 
                   <div className="mt-3 flex items-center justify-between">
                     <p className="text-3xl font-semibold">
-                      {
-                        selectedLead.score
-                      }
-
+                      {selectedLead.score}
                       <span className="text-base text-neutral-600">
                         {" "}
                         / 100
                       </span>
                     </p>
 
-                    <StatusBadge
-                      status={
-                        selectedLead.status
-                      }
-                    />
+                    <StatusBadge status={selectedLead.status} />
                   </div>
                 </div>
               </div>
@@ -1061,46 +827,26 @@ export default function Home() {
               <div className="space-y-6">
                 <div className="rounded-2xl border border-white/10 p-6">
                   <h3 className="font-semibold">
-                    Follow-up
-                    Management
+                    Follow-up Management
                   </h3>
 
                   <label className="mt-5 block text-sm text-neutral-300">
                     Pipeline Stage
 
                     <select
-                      value={
-                        selectedStage
-                      }
-                      onChange={(
-                        event
-                      ) =>
+                      value={selectedStage}
+                      onChange={(event) =>
                         setSelectedStage(
-                          event
-                            .target
-                            .value as PipelineStage
+                          event.target.value as PipelineStage
                         )
                       }
                       className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
                     >
-                      {pipelineStages.map(
-                        (
-                          stage
-                        ) => (
-                          <option
-                            key={
-                              stage
-                            }
-                            value={
-                              stage
-                            }
-                          >
-                            {
-                              stage
-                            }
-                          </option>
-                        )
-                      )}
+                      {pipelineStages.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {stage}
+                        </option>
+                      ))}
                     </select>
                   </label>
 
@@ -1109,17 +855,9 @@ export default function Home() {
 
                     <input
                       type="datetime-local"
-                      value={
-                        nextFollowUp
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setNextFollowUp(
-                          event
-                            .target
-                            .value
-                        )
+                      value={nextFollowUp}
+                      onChange={(event) =>
+                        setNextFollowUp(event.target.value)
                       }
                       className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
                     />
@@ -1129,31 +867,18 @@ export default function Home() {
                     Agent Notes
 
                     <textarea
-                      value={
-                        notes
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setNotes(
-                          event
-                            .target
-                            .value
-                        )
+                      value={notes}
+                      onChange={(event) =>
+                        setNotes(event.target.value)
                       }
                       rows={5}
-                      placeholder="Call outcome, objections, next steps..."
                       className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
                     />
                   </label>
 
                   <button
-                    onClick={
-                      updateLead
-                    }
-                    disabled={
-                      updating
-                    }
+                    onClick={updateLead}
+                    disabled={updating}
                     className="mt-5 w-full rounded-lg bg-white px-5 py-3 font-semibold text-black disabled:opacity-50"
                   >
                     {updating
@@ -1168,27 +893,13 @@ export default function Home() {
                   </p>
 
                   <h3 className="mt-2 text-lg font-semibold">
-                    Personalized
-                    Follow-up
+                    Personalized Follow-up
                   </h3>
 
-                  <p className="mt-2 text-sm text-neutral-400">
-                    Generate a
-                    personalized draft,
-                    review it, edit it,
-                    and send it to the
-                    prospect.
-                  </p>
-
                   <button
-                    onClick={
-                      generateAiFollowUp
-                    }
-                    disabled={
-                      generatingAi ||
-                      sendingEmail
-                    }
-                    className="mt-5 w-full rounded-lg border border-purple-400/30 bg-purple-500/10 px-5 py-3 text-sm font-semibold text-purple-200 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={generateAiFollowUp}
+                    disabled={generatingAi || sendingEmail}
+                    className="mt-5 w-full rounded-lg border border-purple-400/30 bg-purple-500/10 px-5 py-3 font-semibold text-purple-200 disabled:opacity-50"
                   >
                     {generatingAi
                       ? "AI is generating..."
@@ -1199,86 +910,36 @@ export default function Home() {
 
                   {aiMessage && (
                     <div className="mt-6 space-y-5">
-                      <label className="block text-sm font-medium text-neutral-300">
+                      <label className="block text-sm text-neutral-300">
                         Email Subject
 
                         <input
                           type="text"
-                          value={
-                            emailSubject
+                          value={emailSubject}
+                          onChange={(event) =>
+                            setEmailSubject(event.target.value)
                           }
-                          onChange={(
-                            event
-                          ) =>
-                            setEmailSubject(
-                              event
-                                .target
-                                .value
-                            )
-                          }
-                          className="mt-2 w-full rounded-xl border border-purple-500/20 bg-neutral-950 px-4 py-3 text-neutral-200 outline-none focus:border-purple-400/40"
+                          className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
                         />
                       </label>
 
-                      <label className="block text-sm font-medium text-neutral-300">
+                      <label className="block text-sm text-neutral-300">
                         Email Message
 
                         <textarea
-                          value={
-                            aiMessage
+                          value={aiMessage}
+                          onChange={(event) =>
+                            setAiMessage(event.target.value)
                           }
-                          onChange={(
-                            event
-                          ) =>
-                            setAiMessage(
-                              event
-                                .target
-                                .value
-                            )
-                          }
-                          rows={11}
-                          className="mt-2 w-full resize-y rounded-xl border border-purple-500/20 bg-neutral-950 px-4 py-3 text-sm leading-6 text-neutral-200 outline-none focus:border-purple-400/40"
+                          rows={10}
+                          className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
                         />
                       </label>
 
-                      <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                        <p className="text-xs uppercase tracking-wider text-neutral-500">
-                          Recipient
-                        </p>
-
-                        <p className="mt-2 text-sm font-medium">
-                          {
-                            selectedLead.name
-                          }
-                        </p>
-
-                        <p className="mt-1 text-sm text-neutral-400">
-                          {
-                            selectedLead.email
-                          }
-                        </p>
-                      </div>
-
-                      <p className="text-xs leading-5 text-neutral-500">
-                        Review the
-                        recipient, subject,
-                        and message
-                        carefully. The
-                        email will only be
-                        sent after you
-                        confirm.
-                      </p>
-
                       <button
-                        onClick={
-                          sendFollowUpEmail
-                        }
-                        disabled={
-                          sendingEmail ||
-                          generatingAi ||
-                          !aiMessage.trim()
-                        }
-                        className="w-full rounded-lg bg-green-500 px-5 py-3 font-semibold text-black transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={sendFollowUpEmail}
+                        disabled={sendingEmail}
+                        className="w-full rounded-lg bg-green-500 px-5 py-3 font-semibold text-black disabled:opacity-50"
                       >
                         {sendingEmail
                           ? "Sending Email..."
@@ -1289,10 +950,99 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            <div className="mt-10 border-t border-white/10 pt-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                    Communication History
+                  </p>
+
+                  <h3 className="mt-2 text-2xl font-semibold">
+                    Customer Timeline
+                  </h3>
+                </div>
+
+                <button
+                  onClick={() =>
+                    loadCommunications(selectedLead.id)
+                  }
+                  disabled={communicationsLoading}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm text-neutral-400"
+                >
+                  {communicationsLoading
+                    ? "Loading..."
+                    : "Refresh History"}
+                </button>
+              </div>
+
+              {communicationsLoading ? (
+                <div className="mt-6 rounded-xl border border-white/10 p-6 text-sm text-neutral-500">
+                  Loading communication history...
+                </div>
+              ) : communications.length === 0 ? (
+                <div className="mt-6 rounded-xl border border-white/10 p-6 text-sm text-neutral-500">
+                  No communication has been recorded for this lead yet.
+                </div>
+              ) : (
+                <div className="mt-6 space-y-4">
+                  {communications.map((item) => (
+                    <CommunicationCard
+                      key={item.id}
+                      item={item}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
     </main>
+  );
+}
+
+function CommunicationCard({
+  item,
+}: {
+  item: Communication;
+}) {
+  const created = new Date(item.created_at);
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-300">
+              {item.status}
+            </span>
+
+            <span className="text-xs uppercase tracking-wider text-neutral-500">
+              {item.channel} • {item.direction}
+            </span>
+          </div>
+
+          <h4 className="mt-4 font-semibold">
+            {item.subject || "No subject"}
+          </h4>
+
+          <p className="mt-2 text-sm text-neutral-500">
+            To: {item.recipient}
+          </p>
+        </div>
+
+        <p className="text-sm text-neutral-500">
+          {Number.isNaN(created.getTime())
+            ? "Unknown date"
+            : created.toLocaleString()}
+        </p>
+      </div>
+
+      <div className="mt-5 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-neutral-300">
+        {item.message}
+      </div>
+    </div>
   );
 }
 
@@ -1321,17 +1071,8 @@ function StatusBadge({
 }: {
   status: LeadStatus;
 }) {
-  const styles =
-    status === "Hot"
-      ? "border-red-500/30 bg-red-500/10 text-red-300"
-      : status === "Warm"
-        ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-        : "border-blue-500/30 bg-blue-500/10 text-blue-300";
-
   return (
-    <span
-      className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${styles}`}
-    >
+    <span className="rounded-full border border-white/10 px-3 py-1 text-xs">
       {status}
     </span>
   );
@@ -1343,7 +1084,7 @@ function PipelineBadge({
   stage: PipelineStage;
 }) {
   return (
-    <span className="inline-flex whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-300">
+    <span className="rounded-full border border-white/10 px-3 py-1 text-xs">
       {stage}
     </span>
   );
@@ -1362,14 +1103,9 @@ function FollowUpBadge({
     );
   }
 
-  const parsedDate =
-    new Date(date);
+  const parsedDate = new Date(date);
 
-  if (
-    Number.isNaN(
-      parsedDate.getTime()
-    )
-  ) {
+  if (Number.isNaN(parsedDate.getTime())) {
     return (
       <span className="text-sm text-red-300">
         Invalid date
@@ -1377,21 +1113,11 @@ function FollowUpBadge({
     );
   }
 
-  const state =
-    getFollowUpState(date);
-
-  const stateStyle =
-    state === "Overdue"
-      ? "text-red-300"
-      : state === "Due Today"
-        ? "text-yellow-300"
-        : "text-green-300";
+  const state = getFollowUpState(date);
 
   return (
     <div>
-      <span
-        className={`text-sm font-medium ${stateStyle}`}
-      >
+      <span className="text-sm">
         {state}
       </span>
 
@@ -1411,7 +1137,7 @@ function DetailCard({
 }) {
   return (
     <div className="rounded-xl border border-white/10 p-4">
-      <p className="text-xs uppercase tracking-[0.15em] text-neutral-500">
+      <p className="text-xs text-neutral-500">
         {label}
       </p>
 
@@ -1434,17 +1160,15 @@ function FormField({
   placeholder: string;
 }) {
   return (
-    <label className="text-sm text-neutral-300">
+    <label className="text-sm">
       {label}
 
       <input
         required
         name={name}
         type={type}
-        placeholder={
-          placeholder
-        }
-        className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
+        placeholder={placeholder}
+        className="mt-2 w-full rounded-xl bg-neutral-950 px-4 py-3"
       />
     </label>
   );
@@ -1463,10 +1187,7 @@ function calculateLeadScore({
 }) {
   let score = 20;
 
-  const budgetScores: Record<
-    string,
-    number
-  > = {
+  const budgetScores: Record<string, number> = {
     "Under $50,000": 10,
     "$50,000 – $100,000": 15,
     "$100,000 – $250,000": 20,
@@ -1474,94 +1195,49 @@ function calculateLeadScore({
     "$500,000+": 30,
   };
 
-  const timelineScores: Record<
-    string,
-    number
-  > = {
+  const timelineScores: Record<string, number> = {
     "Within 30 days": 35,
     "1–3 months": 25,
     "3–6 months": 15,
     "Just researching": 5,
   };
 
-  score +=
-    budgetScores[budget] || 0;
+  score += budgetScores[budget] || 0;
+  score += timelineScores[timeline] || 0;
 
-  score +=
-    timelineScores[
-      timeline
-    ] || 0;
+  if (interest.length >= 5) score += 10;
+  if (location.length >= 2) score += 5;
 
-  if (
-    interest.length >= 5
-  ) {
-    score += 10;
-  }
-
-  if (
-    location.length >= 2
-  ) {
-    score += 5;
-  }
-
-  return Math.min(
-    score,
-    100
-  );
+  return Math.min(score, 100);
 }
 
-function getLeadStatus(
-  score: number
-): LeadStatus {
-  if (score >= 80) {
-    return "Hot";
-  }
-
-  if (score >= 55) {
-    return "Warm";
-  }
-
+function getLeadStatus(score: number): LeadStatus {
+  if (score >= 80) return "Hot";
+  if (score >= 55) return "Warm";
   return "Cold";
 }
 
 function getFollowUpState(
   date?: string | null
-):
-  | "Overdue"
-  | "Due Today"
-  | "Upcoming"
-  | "None" {
-  if (!date) {
-    return "None";
-  }
+): "Overdue" | "Due Today" | "Upcoming" | "None" {
+  if (!date) return "None";
 
-  const followUp =
-    new Date(date);
+  const followUp = new Date(date);
 
-  if (
-    Number.isNaN(
-      followUp.getTime()
-    )
-  ) {
+  if (Number.isNaN(followUp.getTime())) {
     return "None";
   }
 
   const now = new Date();
 
-  const todayStart =
-    new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    );
-
-  const tomorrowStart =
-    new Date(todayStart);
-
-  tomorrowStart.setDate(
-    tomorrowStart.getDate() +
-      1
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
   );
+
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
   if (followUp < now) {
     return "Overdue";
@@ -1569,8 +1245,7 @@ function getFollowUpState(
 
   if (
     followUp >= todayStart &&
-    followUp <
-      tomorrowStart
+    followUp < tomorrowStart
   ) {
     return "Due Today";
   }
@@ -1578,42 +1253,18 @@ function getFollowUpState(
   return "Upcoming";
 }
 
-function formatForDateTimeInput(
-  date: string
-) {
-  const value =
-    new Date(date);
+function formatForDateTimeInput(date: string) {
+  const value = new Date(date);
 
-  if (
-    Number.isNaN(
-      value.getTime()
-    )
-  ) {
+  if (Number.isNaN(value.getTime())) {
     return "";
   }
 
-  const year =
-    value.getFullYear();
-
-  const month =
-    String(
-      value.getMonth() + 1
-    ).padStart(2, "0");
-
-  const day =
-    String(
-      value.getDate()
-    ).padStart(2, "0");
-
-  const hours =
-    String(
-      value.getHours()
-    ).padStart(2, "0");
-
-  const minutes =
-    String(
-      value.getMinutes()
-    ).padStart(2, "0");
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  const hours = String(value.getHours()).padStart(2, "0");
+  const minutes = String(value.getMinutes()).padStart(2, "0");
 
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
