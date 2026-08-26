@@ -1,18 +1,29 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 export async function POST(request: Request) {
   try {
     const {
+      lead_id,
       to,
       name,
       subject,
       message,
+      pipeline_stage,
     } = await request.json();
 
-    if (!to || !message) {
+    if (!lead_id || !to || !message) {
       return NextResponse.json(
-        { error: "Recipient email and message are required." },
+        {
+          error:
+            "Lead ID, recipient email, and message are required.",
+        },
         { status: 400 }
       );
     }
@@ -31,6 +42,13 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         { error: "SMTP configuration is incomplete." },
+        { status: 500 }
+      );
+    }
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return NextResponse.json(
+        { error: "Supabase server configuration is missing." },
         { status: 500 }
       );
     }
@@ -66,9 +84,61 @@ export async function POST(request: Request) {
       replyTo: smtpUser,
     });
 
+    const { error: communicationError } = await supabase
+      .from("communications")
+      .insert({
+        lead_id,
+        channel: "email",
+        direction: "outbound",
+        recipient: to,
+        subject:
+          subject ||
+          "Following up on your property enquiry",
+        message,
+        status: "sent",
+      });
+
+    if (communicationError) {
+      console.error(
+        "Communication history insert error:",
+        communicationError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Email was sent, but communication history could not be saved.",
+        },
+        { status: 500 }
+      );
+    }
+
+    let updatedLead = null;
+
+    if (!pipeline_stage || pipeline_stage === "New") {
+      const { data, error: leadUpdateError } = await supabase
+        .from("leads")
+        .update({
+          pipeline_stage: "Contacted",
+        })
+        .eq("id", lead_id)
+        .select()
+        .single();
+
+      if (leadUpdateError) {
+        console.error(
+          "Lead stage update error:",
+          leadUpdateError
+        );
+      } else {
+        updatedLead = data;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `Follow-up email sent${name ? ` to ${name}` : ""}.`,
+      updatedLead,
     });
   } catch (error) {
     console.error("Send follow-up error:", error);
