@@ -21,10 +21,7 @@ export async function GET() {
     const reminderRecipient =
       process.env.REMINDER_EMAIL || smtpUser;
 
-    if (
-      !supabaseUrl ||
-      !serviceRoleKey
-    ) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
         {
           error:
@@ -56,15 +53,8 @@ export async function GET() {
       .from("leads")
       .select("*")
       .not("next_follow_up", "is", null)
-      .lte(
-        "next_follow_up",
-        now.toISOString()
-      )
-      .not(
-        "pipeline_stage",
-        "in",
-        '("Won","Lost")'
-      )
+      .lte("next_follow_up", now.toISOString())
+      .not("pipeline_stage", "in", '("Won","Lost")')
       .order("next_follow_up", {
         ascending: true,
       });
@@ -84,14 +74,41 @@ export async function GET() {
       );
     }
 
-    const dueLeads = leads ?? [];
+    const allDueLeads = leads ?? [];
+
+    const dueLeads = allDueLeads.filter((lead) => {
+      if (!lead.next_follow_up) {
+        return false;
+      }
+
+      if (!lead.last_reminder_sent_at) {
+        return true;
+      }
+
+      const followUpTime = new Date(
+        lead.next_follow_up
+      ).getTime();
+
+      const lastReminderTime = new Date(
+        lead.last_reminder_sent_at
+      ).getTime();
+
+      if (
+        Number.isNaN(followUpTime) ||
+        Number.isNaN(lastReminderTime)
+      ) {
+        return true;
+      }
+
+      return lastReminderTime < followUpTime;
+    });
 
     if (dueLeads.length === 0) {
       return NextResponse.json({
         success: true,
         remindersSent: 0,
         message:
-          "No overdue follow-ups found.",
+          "No new overdue follow-up reminders are required.",
       });
     }
 
@@ -143,9 +160,7 @@ export async function GET() {
               )}
             </td>
             <td style="padding:10px;border-bottom:1px solid #ddd;">
-              ${escapeHtml(
-                followUpDate
-              )}
+              ${escapeHtml(followUpDate)}
             </td>
           </tr>
         `;
@@ -156,24 +171,16 @@ export async function GET() {
       from: `"Monetcore Lead Automation" <${smtpFrom}>`,
       to: reminderRecipient,
       subject: `Follow-up Reminder: ${dueLeads.length} lead${
-        dueLeads.length === 1
-          ? ""
-          : "s"
+        dueLeads.length === 1 ? "" : "s"
       } need attention`,
-      text: buildTextReminder(
-        dueLeads
-      ),
+      text: buildTextReminder(dueLeads),
       html: `
         <div style="font-family:Arial,sans-serif;color:#111;line-height:1.5;">
           <h2>Monetcore Follow-up Reminder</h2>
 
           <p>
             ${dueLeads.length}
-            lead${
-              dueLeads.length === 1
-                ? ""
-                : "s"
-            }
+            lead${dueLeads.length === 1 ? "" : "s"}
             currently need follow-up attention.
           </p>
 
@@ -239,6 +246,37 @@ export async function GET() {
       replyTo: smtpUser,
     });
 
+    const reminderTimestamp =
+      new Date().toISOString();
+
+    const leadIds = dueLeads.map(
+      (lead) => lead.id
+    );
+
+    const { error: updateError } =
+      await supabase
+        .from("leads")
+        .update({
+          last_reminder_sent_at:
+            reminderTimestamp,
+        })
+        .in("id", leadIds);
+
+    if (updateError) {
+      console.error(
+        "Reminder timestamp update error:",
+        updateError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Reminder email was sent, but reminder tracking could not be updated.",
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       remindersSent: 1,
@@ -296,9 +334,7 @@ Follow-up: ${followUpDate}
 Monetcore Follow-up Reminder
 
 ${leads.length} lead${
-    leads.length === 1
-      ? ""
-      : "s"
+    leads.length === 1 ? "" : "s"
   } need attention.
 
 ${lines.join("\n\n")}
