@@ -46,6 +46,7 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [generatingAi, setGeneratingAi] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -55,6 +56,11 @@ export default function Home() {
 
   const [notes, setNotes] = useState("");
   const [nextFollowUp, setNextFollowUp] = useState("");
+
+  const [emailSubject, setEmailSubject] = useState(
+    "Following up on your property enquiry"
+  );
+
   const [aiMessage, setAiMessage] = useState("");
 
   useEffect(() => {
@@ -177,6 +183,11 @@ export default function Home() {
     );
 
     setAiMessage("");
+
+    setEmailSubject(
+      `Following up on your ${lead.interest || "property"} enquiry`
+    );
+
     setError("");
     setSuccessMessage("");
   }
@@ -186,6 +197,7 @@ export default function Home() {
     setNotes("");
     setNextFollowUp("");
     setAiMessage("");
+    setEmailSubject("Following up on your property enquiry");
     setSelectedStage("New");
     setError("");
   }
@@ -267,7 +279,7 @@ export default function Home() {
     try {
       setGeneratingAi(true);
       setError("");
-      setAiMessage("");
+      setSuccessMessage("");
 
       const response = await fetch("/api/ai-followup", {
         method: "POST",
@@ -309,12 +321,78 @@ export default function Home() {
     }
   }
 
+  async function sendFollowUpEmail() {
+    if (!selectedLead) return;
+
+    if (!aiMessage.trim()) {
+      setError(
+        "Generate or write a follow-up message before sending."
+      );
+      return;
+    }
+
+    if (!emailSubject.trim()) {
+      setError("Please enter an email subject.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Send this email to ${selectedLead.name} at ${selectedLead.email}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      setError("");
+      setSuccessMessage("");
+
+      const response = await fetch("/api/send-followup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: selectedLead.email,
+          name: selectedLead.name,
+          subject: emailSubject.trim(),
+          message: aiMessage.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Unable to send follow-up email."
+        );
+      }
+
+      showSuccess(
+        result.message ||
+          `Follow-up email sent to ${selectedLead.name}.`
+      );
+    } catch (error) {
+      console.error("Send email error:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to send follow-up email."
+      );
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   function showSuccess(message: string) {
     setSuccessMessage(message);
 
     setTimeout(() => {
       setSuccessMessage("");
-    }, 4000);
+    }, 5000);
   }
 
   const stats = useMemo(() => {
@@ -329,15 +407,18 @@ export default function Home() {
     ).length;
 
     const overdue = leads.filter(
-      (lead) => getFollowUpState(lead.next_follow_up) === "Overdue"
+      (lead) =>
+        getFollowUpState(lead.next_follow_up) === "Overdue"
     ).length;
 
     const dueToday = leads.filter(
-      (lead) => getFollowUpState(lead.next_follow_up) === "Due Today"
+      (lead) =>
+        getFollowUpState(lead.next_follow_up) === "Due Today"
     ).length;
 
     const upcoming = leads.filter(
-      (lead) => getFollowUpState(lead.next_follow_up) === "Upcoming"
+      (lead) =>
+        getFollowUpState(lead.next_follow_up) === "Upcoming"
     ).length;
 
     return {
@@ -385,9 +466,10 @@ export default function Home() {
           Sales Pipeline
         </h1>
 
-        <p className="mt-3 max-w-2xl text-neutral-400">
-          Capture, qualify, prioritize, schedule follow-ups, and generate
-          personalized AI-assisted communication.
+        <p className="mt-3 max-w-3xl text-neutral-400">
+          Capture, qualify, prioritize, schedule follow-ups, generate
+          personalized AI communication, and contact prospects from one
+          dashboard.
         </p>
 
         {error && (
@@ -414,10 +496,12 @@ export default function Home() {
         <div className="mt-10 overflow-hidden rounded-2xl border border-white/10">
           <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
             <div>
-              <h2 className="text-lg font-semibold">Lead Pipeline</h2>
+              <h2 className="text-lg font-semibold">
+                Lead Pipeline
+              </h2>
 
               <p className="mt-1 text-sm text-neutral-500">
-                Click any lead to manage follow-up and AI communication.
+                Click a lead to manage follow-up and communication.
               </p>
             </div>
 
@@ -486,7 +570,9 @@ export default function Home() {
                       </td>
 
                       <td className="px-6 py-5">
-                        <FollowUpBadge date={lead.next_follow_up} />
+                        <FollowUpBadge
+                          date={lead.next_follow_up}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -501,7 +587,9 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
           <div className="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900 p-8">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold">Add a Lead</h2>
+              <h2 className="text-2xl font-semibold">
+                Add a Lead
+              </h2>
 
               <button
                 onClick={() => setShowForm(false)}
@@ -511,7 +599,10 @@ export default function Home() {
               </button>
             </div>
 
-            <form onSubmit={handleAddLead} className="mt-8 grid gap-5">
+            <form
+              onSubmit={handleAddLead}
+              className="mt-8 grid gap-5"
+            >
               <FormField
                 label="Full name"
                 name="name"
@@ -549,23 +640,18 @@ export default function Home() {
                 <option value="" disabled>
                   Select budget
                 </option>
-
                 <option value="Under $50,000">
                   Under $50,000
                 </option>
-
                 <option value="$50,000 – $100,000">
                   $50,000 – $100,000
                 </option>
-
                 <option value="$100,000 – $250,000">
                   $100,000 – $250,000
                 </option>
-
                 <option value="$250,000 – $500,000">
                   $250,000 – $500,000
                 </option>
-
                 <option value="$500,000+">
                   $500,000+
                 </option>
@@ -580,19 +666,15 @@ export default function Home() {
                 <option value="" disabled>
                   Select timeline
                 </option>
-
                 <option value="Within 30 days">
                   Within 30 days
                 </option>
-
                 <option value="1–3 months">
                   1–3 months
                 </option>
-
                 <option value="3–6 months">
                   3–6 months
                 </option>
-
                 <option value="Just researching">
                   Just researching
                 </option>
@@ -721,7 +803,9 @@ export default function Home() {
 
                     <textarea
                       value={notes}
-                      onChange={(event) => setNotes(event.target.value)}
+                      onChange={(event) =>
+                        setNotes(event.target.value)
+                      }
                       rows={5}
                       placeholder="Call outcome, objections, next steps..."
                       className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
@@ -733,54 +817,99 @@ export default function Home() {
                     disabled={updating}
                     className="mt-5 w-full rounded-lg bg-white px-5 py-3 font-semibold text-black disabled:opacity-50"
                   >
-                    {updating ? "Saving..." : "Save Follow-up"}
+                    {updating
+                      ? "Saving..."
+                      : "Save Follow-up"}
                   </button>
                 </div>
 
                 <div className="rounded-2xl border border-purple-500/20 bg-purple-500/[0.04] p-6">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-300">
-                      AI Assistant
-                    </p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-300">
+                    AI Assistant
+                  </p>
 
-                    <h3 className="mt-2 text-lg font-semibold">
-                      Personalized Follow-up
-                    </h3>
+                  <h3 className="mt-2 text-lg font-semibold">
+                    Personalized Follow-up
+                  </h3>
 
-                    <p className="mt-2 text-sm text-neutral-400">
-                      Generate a draft using this lead&apos;s requirements,
-                      qualification, pipeline stage, and agent notes.
-                    </p>
-                  </div>
+                  <p className="mt-2 text-sm text-neutral-400">
+                    Generate a personalized draft, review it, edit it,
+                    and send it to the prospect.
+                  </p>
 
                   <button
                     onClick={generateAiFollowUp}
-                    disabled={generatingAi}
+                    disabled={generatingAi || sendingEmail}
                     className="mt-5 w-full rounded-lg border border-purple-400/30 bg-purple-500/10 px-5 py-3 text-sm font-semibold text-purple-200 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {generatingAi
                       ? "AI is generating..."
-                      : "Generate AI Follow-up"}
+                      : aiMessage
+                        ? "Regenerate AI Follow-up"
+                        : "Generate AI Follow-up"}
                   </button>
 
                   {aiMessage && (
-                    <div className="mt-6">
-                      <label className="text-sm font-medium text-neutral-300">
-                        AI Draft
+                    <div className="mt-6 space-y-5">
+                      <label className="block text-sm font-medium text-neutral-300">
+                        Email Subject
+
+                        <input
+                          type="text"
+                          value={emailSubject}
+                          onChange={(event) =>
+                            setEmailSubject(event.target.value)
+                          }
+                          className="mt-2 w-full rounded-xl border border-purple-500/20 bg-neutral-950 px-4 py-3 text-neutral-200 outline-none focus:border-purple-400/40"
+                        />
                       </label>
 
-                      <textarea
-                        value={aiMessage}
-                        onChange={(event) =>
-                          setAiMessage(event.target.value)
-                        }
-                        rows={10}
-                        className="mt-2 w-full resize-y rounded-xl border border-purple-500/20 bg-neutral-950 px-4 py-3 text-sm leading-6 text-neutral-200 outline-none focus:border-purple-400/40"
-                      />
+                      <label className="block text-sm font-medium text-neutral-300">
+                        Email Message
 
-                      <p className="mt-2 text-xs text-neutral-500">
-                        Review and edit the message before sending.
+                        <textarea
+                          value={aiMessage}
+                          onChange={(event) =>
+                            setAiMessage(event.target.value)
+                          }
+                          rows={11}
+                          className="mt-2 w-full resize-y rounded-xl border border-purple-500/20 bg-neutral-950 px-4 py-3 text-sm leading-6 text-neutral-200 outline-none focus:border-purple-400/40"
+                        />
+                      </label>
+
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                        <p className="text-xs uppercase tracking-wider text-neutral-500">
+                          Recipient
+                        </p>
+
+                        <p className="mt-2 text-sm font-medium">
+                          {selectedLead.name}
+                        </p>
+
+                        <p className="mt-1 text-sm text-neutral-400">
+                          {selectedLead.email}
+                        </p>
+                      </div>
+
+                      <p className="text-xs leading-5 text-neutral-500">
+                        Review the recipient, subject, and message
+                        carefully. The email will only be sent after
+                        you confirm.
                       </p>
+
+                      <button
+                        onClick={sendFollowUpEmail}
+                        disabled={
+                          sendingEmail ||
+                          generatingAi ||
+                          !aiMessage.trim()
+                        }
+                        className="w-full rounded-lg bg-green-500 px-5 py-3 font-semibold text-black transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {sendingEmail
+                          ? "Sending Email..."
+                          : `Send Email to ${selectedLead.name}`}
+                      </button>
                     </div>
                   )}
                 </div>
