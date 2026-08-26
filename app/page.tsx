@@ -40,6 +40,12 @@ type Communication = {
   status: string;
 };
 
+type FollowUpState =
+  | "Overdue"
+  | "Due Today"
+  | "Upcoming"
+  | "None";
+
 const pipelineStages: PipelineStage[] = [
   "New",
   "Contacted",
@@ -54,8 +60,12 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  const [communications, setCommunications] = useState<Communication[]>([]);
-  const [communicationsLoading, setCommunicationsLoading] = useState(false);
+  const [communications, setCommunications] = useState<
+    Communication[]
+  >([]);
+
+  const [communicationsLoading, setCommunicationsLoading] =
+    useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -146,7 +156,9 @@ export default function Home() {
     }
   }
 
-  async function handleAddLead(event: FormEvent<HTMLFormElement>) {
+  async function handleAddLead(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     const form = event.currentTarget;
@@ -154,8 +166,12 @@ export default function Home() {
 
     const name = String(formData.get("name") || "").trim();
     const email = String(formData.get("email") || "").trim();
-    const interest = String(formData.get("interest") || "").trim();
-    const location = String(formData.get("location") || "").trim();
+    const interest = String(
+      formData.get("interest") || ""
+    ).trim();
+    const location = String(
+      formData.get("location") || ""
+    ).trim();
     const budget = String(formData.get("budget") || "");
     const timeline = String(formData.get("timeline") || "");
 
@@ -234,7 +250,9 @@ export default function Home() {
     setAiMessage("");
 
     setEmailSubject(
-      `Following up on your ${lead.interest || "property"} enquiry`
+      `Following up on your ${
+        lead.interest || "property"
+      } enquiry`
     );
 
     setCommunications([]);
@@ -250,7 +268,9 @@ export default function Home() {
     setNextFollowUp("");
     setAiMessage("");
     setCommunications([]);
-    setEmailSubject("Following up on your property enquiry");
+    setEmailSubject(
+      "Following up on your property enquiry"
+    );
     setSelectedStage("New");
     setError("");
   }
@@ -268,7 +288,9 @@ export default function Home() {
         const parsedDate = new Date(nextFollowUp);
 
         if (Number.isNaN(parsedDate.getTime())) {
-          setError("Please select a valid follow-up date and time.");
+          setError(
+            "Please select a valid follow-up date and time."
+          );
           return;
         }
 
@@ -291,7 +313,9 @@ export default function Home() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Unable to update lead.");
+        throw new Error(
+          result.error || "Unable to update lead."
+        );
       }
 
       const updatedLead = result.lead as Lead;
@@ -303,12 +327,18 @@ export default function Home() {
       );
 
       setSelectedLead(updatedLead);
-      setSelectedStage(updatedLead.pipeline_stage || "New");
+
+      setSelectedStage(
+        updatedLead.pipeline_stage || "New"
+      );
+
       setNotes(updatedLead.notes || "");
 
       setNextFollowUp(
         updatedLead.next_follow_up
-          ? formatForDateTimeInput(updatedLead.next_follow_up)
+          ? formatForDateTimeInput(
+              updatedLead.next_follow_up
+            )
           : ""
       );
 
@@ -378,7 +408,9 @@ export default function Home() {
     if (!selectedLead) return;
 
     if (!aiMessage.trim()) {
-      setError("Generate or write a follow-up message before sending.");
+      setError(
+        "Generate or write a follow-up message before sending."
+      );
       return;
     }
 
@@ -431,7 +463,10 @@ export default function Home() {
         );
 
         setSelectedLead(updatedLead);
-        setSelectedStage(updatedLead.pipeline_stage || "Contacted");
+
+        setSelectedStage(
+          updatedLead.pipeline_stage || "Contacted"
+        );
       }
 
       await loadCommunications(selectedLead.id);
@@ -464,7 +499,9 @@ export default function Home() {
   const stats = useMemo(() => {
     const total = leads.length;
 
-    const hot = leads.filter((lead) => lead.status === "Hot").length;
+    const hot = leads.filter(
+      (lead) => lead.status === "Hot"
+    ).length;
 
     const won = leads.filter(
       (lead) => lead.pipeline_stage === "Won"
@@ -493,6 +530,59 @@ export default function Home() {
       dueToday,
       upcoming,
     };
+  }, [leads]);
+
+  const actionQueue = useMemo(() => {
+    return leads
+      .filter((lead) => {
+        const stage = lead.pipeline_stage || "New";
+
+        if (stage === "Won" || stage === "Lost") {
+          return false;
+        }
+
+        const state = getFollowUpState(
+          lead.next_follow_up
+        );
+
+        return (
+          state === "Overdue" ||
+          state === "Due Today"
+        );
+      })
+      .sort((a, b) => {
+        const stateA = getFollowUpState(
+          a.next_follow_up
+        );
+
+        const stateB = getFollowUpState(
+          b.next_follow_up
+        );
+
+        if (
+          stateA === "Overdue" &&
+          stateB !== "Overdue"
+        ) {
+          return -1;
+        }
+
+        if (
+          stateB === "Overdue" &&
+          stateA !== "Overdue"
+        ) {
+          return 1;
+        }
+
+        const dateA = a.next_follow_up
+          ? new Date(a.next_follow_up).getTime()
+          : Number.MAX_SAFE_INTEGER;
+
+        const dateB = b.next_follow_up
+          ? new Date(b.next_follow_up).getTime()
+          : Number.MAX_SAFE_INTEGER;
+
+        return dateA - dateB;
+      });
   }, [leads]);
 
   return (
@@ -531,8 +621,9 @@ export default function Home() {
         </h1>
 
         <p className="mt-3 max-w-3xl text-neutral-400">
-          Capture, qualify, prioritize, schedule follow-ups, generate
-          personalized AI communication, and track every customer interaction.
+          Capture, qualify, prioritize, schedule follow-ups,
+          generate personalized AI communication, and track every
+          customer interaction.
         </p>
 
         {error && (
@@ -548,14 +639,147 @@ export default function Home() {
         )}
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-          <StatCard label="Total Leads" value={String(stats.total)} />
-          <StatCard label="Hot Leads" value={String(stats.hot)} />
-          <StatCard label="Overdue" value={String(stats.overdue)} />
-          <StatCard label="Due Today" value={String(stats.dueToday)} />
-          <StatCard label="Upcoming" value={String(stats.upcoming)} />
-          <StatCard label="Won Deals" value={String(stats.won)} />
+          <StatCard
+            label="Total Leads"
+            value={String(stats.total)}
+          />
+
+          <StatCard
+            label="Hot Leads"
+            value={String(stats.hot)}
+          />
+
+          <StatCard
+            label="Overdue"
+            value={String(stats.overdue)}
+          />
+
+          <StatCard
+            label="Due Today"
+            value={String(stats.dueToday)}
+          />
+
+          <StatCard
+            label="Upcoming"
+            value={String(stats.upcoming)}
+          />
+
+          <StatCard
+            label="Won Deals"
+            value={String(stats.won)}
+          />
         </div>
 
+        {/* Today's Action Queue */}
+        <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02]">
+          <div className="border-b border-white/10 px-6 py-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+              Today&apos;s Action Queue
+            </p>
+
+            <div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+              <div>
+                <h2 className="text-2xl font-semibold">
+                  Follow-ups needing attention
+                </h2>
+
+                <p className="mt-2 text-sm text-neutral-500">
+                  Overdue leads appear first, followed by
+                  follow-ups due today.
+                </p>
+              </div>
+
+              <span className="text-sm text-neutral-500">
+                {actionQueue.length} action
+                {actionQueue.length === 1 ? "" : "s"}
+              </span>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="px-6 py-10 text-sm text-neutral-500">
+              Loading action queue...
+            </div>
+          ) : actionQueue.length === 0 ? (
+            <div className="px-6 py-10">
+              <p className="font-medium text-neutral-300">
+                You&apos;re caught up.
+              </p>
+
+              <p className="mt-2 text-sm text-neutral-500">
+                There are no overdue or due-today follow-ups
+                right now.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/10">
+              {actionQueue.map((lead) => {
+                const followUpState = getFollowUpState(
+                  lead.next_follow_up
+                );
+
+                return (
+                  <div
+                    key={lead.id}
+                    className="flex flex-col justify-between gap-5 px-6 py-5 lg:flex-row lg:items-center"
+                  >
+                    <div className="flex gap-4">
+                      <div
+                        className={`mt-1 h-3 w-3 shrink-0 rounded-full ${
+                          followUpState === "Overdue"
+                            ? "bg-red-400"
+                            : "bg-yellow-400"
+                        }`}
+                      />
+
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="font-semibold">
+                            {lead.name}
+                          </h3>
+
+                          <ActionBadge
+                            state={followUpState}
+                          />
+
+                          <StatusBadge
+                            status={lead.status}
+                          />
+                        </div>
+
+                        <p className="mt-2 text-sm text-neutral-400">
+                          {lead.interest} • {lead.location}
+                        </p>
+
+                        <p className="mt-2 text-sm text-neutral-500">
+                          {lead.next_follow_up
+                            ? `Scheduled: ${formatDisplayDate(
+                                lead.next_follow_up
+                              )}`
+                            : "No follow-up date"}
+                        </p>
+
+                        <p className="mt-1 text-xs text-neutral-600">
+                          Pipeline:{" "}
+                          {lead.pipeline_stage || "New"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => openLead(lead)}
+                      className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-neutral-200"
+                    >
+                      Open Lead
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Main Lead Table */}
         <div className="mt-10 overflow-hidden rounded-2xl border border-white/10">
           <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
             <div>
@@ -630,7 +854,9 @@ export default function Home() {
 
                       <td className="px-6 py-5">
                         <PipelineBadge
-                          stage={lead.pipeline_stage || "New"}
+                          stage={
+                            lead.pipeline_stage || "New"
+                          }
                         />
                       </td>
 
@@ -648,6 +874,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Add Lead Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
           <div className="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900 p-8">
@@ -705,18 +932,23 @@ export default function Home() {
                 <option value="" disabled>
                   Select budget
                 </option>
+
                 <option value="Under $50,000">
                   Under $50,000
                 </option>
+
                 <option value="$50,000 – $100,000">
                   $50,000 – $100,000
                 </option>
+
                 <option value="$100,000 – $250,000">
                   $100,000 – $250,000
                 </option>
+
                 <option value="$250,000 – $500,000">
                   $250,000 – $500,000
                 </option>
+
                 <option value="$500,000+">
                   $500,000+
                 </option>
@@ -731,15 +963,19 @@ export default function Home() {
                 <option value="" disabled>
                   Select timeline
                 </option>
+
                 <option value="Within 30 days">
                   Within 30 days
                 </option>
+
                 <option value="1–3 months">
                   1–3 months
                 </option>
+
                 <option value="3–6 months">
                   3–6 months
                 </option>
+
                 <option value="Just researching">
                   Just researching
                 </option>
@@ -750,13 +986,16 @@ export default function Home() {
                 disabled={saving}
                 className="rounded-lg bg-white px-5 py-3 font-semibold text-black disabled:opacity-50"
               >
-                {saving ? "Saving..." : "Qualify & Add Lead"}
+                {saving
+                  ? "Saving..."
+                  : "Qualify & Add Lead"}
               </button>
             </form>
           </div>
         </div>
       )}
 
+      {/* Lead Detail */}
       {selectedLead && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 px-4 py-6">
           <div className="mx-auto w-full max-w-6xl rounded-2xl border border-white/10 bg-neutral-900 p-8">
@@ -819,7 +1058,9 @@ export default function Home() {
                       </span>
                     </p>
 
-                    <StatusBadge status={selectedLead.status} />
+                    <StatusBadge
+                      status={selectedLead.status}
+                    />
                   </div>
                 </div>
               </div>
@@ -843,7 +1084,10 @@ export default function Home() {
                       className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
                     >
                       {pipelineStages.map((stage) => (
-                        <option key={stage} value={stage}>
+                        <option
+                          key={stage}
+                          value={stage}
+                        >
                           {stage}
                         </option>
                       ))}
@@ -857,7 +1101,9 @@ export default function Home() {
                       type="datetime-local"
                       value={nextFollowUp}
                       onChange={(event) =>
-                        setNextFollowUp(event.target.value)
+                        setNextFollowUp(
+                          event.target.value
+                        )
                       }
                       className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
                     />
@@ -898,7 +1144,9 @@ export default function Home() {
 
                   <button
                     onClick={generateAiFollowUp}
-                    disabled={generatingAi || sendingEmail}
+                    disabled={
+                      generatingAi || sendingEmail
+                    }
                     className="mt-5 w-full rounded-lg border border-purple-400/30 bg-purple-500/10 px-5 py-3 font-semibold text-purple-200 disabled:opacity-50"
                   >
                     {generatingAi
@@ -917,7 +1165,9 @@ export default function Home() {
                           type="text"
                           value={emailSubject}
                           onChange={(event) =>
-                            setEmailSubject(event.target.value)
+                            setEmailSubject(
+                              event.target.value
+                            )
                           }
                           className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
                         />
@@ -929,7 +1179,9 @@ export default function Home() {
                         <textarea
                           value={aiMessage}
                           onChange={(event) =>
-                            setAiMessage(event.target.value)
+                            setAiMessage(
+                              event.target.value
+                            )
                           }
                           rows={10}
                           className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
@@ -951,6 +1203,7 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Communication History */}
             <div className="mt-10 border-t border-white/10 pt-8">
               <div className="flex items-center justify-between">
                 <div>
@@ -965,9 +1218,13 @@ export default function Home() {
 
                 <button
                   onClick={() =>
-                    loadCommunications(selectedLead.id)
+                    loadCommunications(
+                      selectedLead.id
+                    )
                   }
-                  disabled={communicationsLoading}
+                  disabled={
+                    communicationsLoading
+                  }
                   className="rounded-lg border border-white/10 px-4 py-2 text-sm text-neutral-400"
                 >
                   {communicationsLoading
@@ -982,7 +1239,8 @@ export default function Home() {
                 </div>
               ) : communications.length === 0 ? (
                 <div className="mt-6 rounded-xl border border-white/10 p-6 text-sm text-neutral-500">
-                  No communication has been recorded for this lead yet.
+                  No communication has been recorded for this
+                  lead yet.
                 </div>
               ) : (
                 <div className="mt-6 space-y-4">
@@ -1002,12 +1260,33 @@ export default function Home() {
   );
 }
 
+function ActionBadge({
+  state,
+}: {
+  state: FollowUpState;
+}) {
+  const styles =
+    state === "Overdue"
+      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      : "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${styles}`}
+    >
+      {state}
+    </span>
+  );
+}
+
 function CommunicationCard({
   item,
 }: {
   item: Communication;
 }) {
-  const created = new Date(item.created_at);
+  const created = new Date(
+    item.created_at
+  );
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
@@ -1019,12 +1298,14 @@ function CommunicationCard({
             </span>
 
             <span className="text-xs uppercase tracking-wider text-neutral-500">
-              {item.channel} • {item.direction}
+              {item.channel} •{" "}
+              {item.direction}
             </span>
           </div>
 
           <h4 className="mt-4 font-semibold">
-            {item.subject || "No subject"}
+            {item.subject ||
+              "No subject"}
           </h4>
 
           <p className="mt-2 text-sm text-neutral-500">
@@ -1033,7 +1314,9 @@ function CommunicationCard({
         </div>
 
         <p className="text-sm text-neutral-500">
-          {Number.isNaN(created.getTime())
+          {Number.isNaN(
+            created.getTime()
+          )
             ? "Unknown date"
             : created.toLocaleString()}
         </p>
@@ -1071,8 +1354,17 @@ function StatusBadge({
 }: {
   status: LeadStatus;
 }) {
+  const styles =
+    status === "Hot"
+      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      : status === "Warm"
+        ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+        : "border-blue-500/30 bg-blue-500/10 text-blue-300";
+
   return (
-    <span className="rounded-full border border-white/10 px-3 py-1 text-xs">
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${styles}`}
+    >
       {status}
     </span>
   );
@@ -1105,7 +1397,11 @@ function FollowUpBadge({
 
   const parsedDate = new Date(date);
 
-  if (Number.isNaN(parsedDate.getTime())) {
+  if (
+    Number.isNaN(
+      parsedDate.getTime()
+    )
+  ) {
     return (
       <span className="text-sm text-red-300">
         Invalid date
@@ -1113,7 +1409,8 @@ function FollowUpBadge({
     );
   }
 
-  const state = getFollowUpState(date);
+  const state =
+    getFollowUpState(date);
 
   return (
     <div>
@@ -1187,7 +1484,10 @@ function calculateLeadScore({
 }) {
   let score = 20;
 
-  const budgetScores: Record<string, number> = {
+  const budgetScores: Record<
+    string,
+    number
+  > = {
     "Under $50,000": 10,
     "$50,000 – $100,000": 15,
     "$100,000 – $250,000": 20,
@@ -1195,49 +1495,86 @@ function calculateLeadScore({
     "$500,000+": 30,
   };
 
-  const timelineScores: Record<string, number> = {
+  const timelineScores: Record<
+    string,
+    number
+  > = {
     "Within 30 days": 35,
     "1–3 months": 25,
     "3–6 months": 15,
     "Just researching": 5,
   };
 
-  score += budgetScores[budget] || 0;
-  score += timelineScores[timeline] || 0;
+  score +=
+    budgetScores[budget] || 0;
 
-  if (interest.length >= 5) score += 10;
-  if (location.length >= 2) score += 5;
+  score +=
+    timelineScores[
+      timeline
+    ] || 0;
 
-  return Math.min(score, 100);
+  if (interest.length >= 5) {
+    score += 10;
+  }
+
+  if (location.length >= 2) {
+    score += 5;
+  }
+
+  return Math.min(
+    score,
+    100
+  );
 }
 
-function getLeadStatus(score: number): LeadStatus {
-  if (score >= 80) return "Hot";
-  if (score >= 55) return "Warm";
+function getLeadStatus(
+  score: number
+): LeadStatus {
+  if (score >= 80) {
+    return "Hot";
+  }
+
+  if (score >= 55) {
+    return "Warm";
+  }
+
   return "Cold";
 }
 
 function getFollowUpState(
   date?: string | null
-): "Overdue" | "Due Today" | "Upcoming" | "None" {
-  if (!date) return "None";
+): FollowUpState {
+  if (!date) {
+    return "None";
+  }
 
-  const followUp = new Date(date);
+  const followUp =
+    new Date(date);
 
-  if (Number.isNaN(followUp.getTime())) {
+  if (
+    Number.isNaN(
+      followUp.getTime()
+    )
+  ) {
     return "None";
   }
 
   const now = new Date();
 
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  );
+  const todayStart =
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
 
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const tomorrowStart =
+    new Date(todayStart);
+
+  tomorrowStart.setDate(
+    tomorrowStart.getDate() +
+      1
+  );
 
   if (followUp < now) {
     return "Overdue";
@@ -1253,18 +1590,58 @@ function getFollowUpState(
   return "Upcoming";
 }
 
-function formatForDateTimeInput(date: string) {
-  const value = new Date(date);
+function formatForDateTimeInput(
+  date: string
+) {
+  const value =
+    new Date(date);
 
-  if (Number.isNaN(value.getTime())) {
+  if (
+    Number.isNaN(
+      value.getTime()
+    )
+  ) {
     return "";
   }
 
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  const hours = String(value.getHours()).padStart(2, "0");
-  const minutes = String(value.getMinutes()).padStart(2, "0");
+  const year =
+    value.getFullYear();
+
+  const month =
+    String(
+      value.getMonth() + 1
+    ).padStart(2, "0");
+
+  const day =
+    String(
+      value.getDate()
+    ).padStart(2, "0");
+
+  const hours =
+    String(
+      value.getHours()
+    ).padStart(2, "0");
+
+  const minutes =
+    String(
+      value.getMinutes()
+    ).padStart(2, "0");
 
   return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function formatDisplayDate(
+  date: string
+) {
+  const parsed = new Date(date);
+
+  if (
+    Number.isNaN(
+      parsed.getTime()
+    )
+  ) {
+    return "Invalid date";
+  }
+
+  return parsed.toLocaleString();
 }
