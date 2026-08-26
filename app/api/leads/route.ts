@@ -45,7 +45,7 @@ export async function GET() {
 }
 
 // POST /api/leads
-// Saves a new qualified lead
+// Creates a new qualified lead
 export async function POST(request: Request) {
   try {
     if (!supabaseUrl || !serviceRoleKey) {
@@ -134,6 +134,7 @@ export async function POST(request: Request) {
         timeline,
         score,
         status,
+        pipeline_stage: "New",
       })
       .select()
       .single();
@@ -156,6 +157,122 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("POST /api/leads error:", error);
+
+    return NextResponse.json(
+      { error: "Unexpected server error." },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/leads
+// Updates pipeline stage, notes and next follow-up
+export async function PATCH(request: Request) {
+  try {
+    if (!supabaseUrl || !serviceRoleKey) {
+      return NextResponse.json(
+        { error: "Supabase server configuration is missing." },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+
+    const {
+      id,
+      pipeline_stage,
+      notes,
+      next_follow_up,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Lead ID is required." },
+        { status: 400 }
+      );
+    }
+
+    const allowedStages = [
+      "New",
+      "Contacted",
+      "Viewing Scheduled",
+      "Negotiating",
+      "Won",
+      "Lost",
+    ];
+
+    if (
+      pipeline_stage !== undefined &&
+      !allowedStages.includes(pipeline_stage)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid pipeline stage." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      next_follow_up !== undefined &&
+      next_follow_up !== null &&
+      next_follow_up !== "" &&
+      Number.isNaN(Date.parse(next_follow_up))
+    ) {
+      return NextResponse.json(
+        { error: "Invalid follow-up date." },
+        { status: 400 }
+      );
+    }
+
+    const updates: {
+      pipeline_stage?: string;
+      notes?: string;
+      next_follow_up?: string | null;
+    } = {};
+
+    if (pipeline_stage !== undefined) {
+      updates.pipeline_stage = pipeline_stage;
+    }
+
+    if (notes !== undefined) {
+      updates.notes = String(notes).trim();
+    }
+
+    if (next_follow_up !== undefined) {
+      updates.next_follow_up =
+        next_follow_up === ""
+          ? null
+          : next_follow_up;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: "No lead changes were provided." },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("leads")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase PATCH error:", error);
+
+      return NextResponse.json(
+        { error: "Unable to update lead." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      lead: data,
+    });
+  } catch (error) {
+    console.error("PATCH /api/leads error:", error);
 
     return NextResponse.json(
       { error: "Unexpected server error." },
