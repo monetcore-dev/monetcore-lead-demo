@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
+import {
+  checkRateLimit,
+  cleanText,
+} from "@/lib/security";
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -14,19 +19,36 @@ export async function POST(request: Request) {
       );
     }
 
+    const rateLimitResponse = checkRateLimit(request, {
+      key: "ai-followup",
+      limit: 5,
+      windowMs: 60_000,
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const body = await request.json();
 
-    const {
-      name,
-      interest,
-      location,
-      budget,
-      timeline,
-      score,
-      status,
-      pipeline_stage,
-      notes,
-    } = body;
+    const name = cleanText(body.name, 100);
+    const interest = cleanText(body.interest, 200);
+    const location = cleanText(body.location, 150);
+    const budget = cleanText(body.budget, 100);
+    const timeline = cleanText(body.timeline, 100);
+    const pipelineStage = cleanText(
+      body.pipeline_stage,
+      50
+    );
+    const notes = cleanText(body.notes, 1500);
+
+    const score =
+      typeof body.score === "number" &&
+      Number.isFinite(body.score)
+        ? Math.min(100, Math.max(0, body.score))
+        : null;
+
+    const status = cleanText(body.status, 20);
 
     if (!name || !interest || !location) {
       return NextResponse.json(
@@ -64,7 +86,7 @@ Budget: ${budget || "Not specified"}
 Purchase timeline: ${timeline || "Not specified"}
 Lead score: ${score ?? "Not specified"}
 Lead priority: ${status || "Not specified"}
-Pipeline stage: ${pipeline_stage || "New"}
+Pipeline stage: ${pipelineStage || "New"}
 
 Agent notes:
 ${notes || "No previous notes"}

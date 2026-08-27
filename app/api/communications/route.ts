@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { checkRateLimit } from "@/lib/security";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -21,14 +23,24 @@ export async function GET(request: Request) {
       );
     }
 
+    const rateLimitResponse = checkRateLimit(request, {
+      key: "communications-get",
+      limit: 60,
+      windowMs: 60_000,
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { searchParams } = new URL(request.url);
+
     const leadId = searchParams.get("lead_id");
 
     if (!leadId) {
       return NextResponse.json(
         {
-          error:
-            "lead_id is required.",
+          error: "lead_id is required.",
         },
         { status: 400 }
       );
@@ -37,13 +49,12 @@ export async function GET(request: Request) {
     const numericLeadId = Number(leadId);
 
     if (
-      Number.isNaN(numericLeadId) ||
+      !Number.isInteger(numericLeadId) ||
       numericLeadId <= 0
     ) {
       return NextResponse.json(
         {
-          error:
-            "Invalid lead_id.",
+          error: "Invalid lead_id.",
         },
         { status: 400 }
       );
@@ -51,11 +62,24 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from("communications")
-      .select("*")
+      .select(
+        `
+        id,
+        lead_id,
+        channel,
+        direction,
+        recipient,
+        subject,
+        message,
+        status,
+        created_at
+        `
+      )
       .eq("lead_id", numericLeadId)
       .order("created_at", {
         ascending: false,
-      });
+      })
+      .limit(100);
 
     if (error) {
       console.error(
@@ -83,8 +107,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       {
-        error:
-          "Unexpected server error.",
+        error: "Unexpected server error.",
       },
       { status: 500 }
     );

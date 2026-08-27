@@ -1,14 +1,28 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import {
+  calculateLeadQualification,
+  checkRateLimit,
+  cleanText,
+  isValidEmail,
+} from "@/lib/security";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-// GET /api/leads
-// Returns all leads, newest first
-export async function GET() {
+const allowedStages = [
+  "New",
+  "Contacted",
+  "Viewing Scheduled",
+  "Negotiating",
+  "Won",
+  "Lost",
+];
+
+export async function GET(request: Request) {
   try {
     if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
@@ -17,10 +31,39 @@ export async function GET() {
       );
     }
 
+    const rateLimitResponse = checkRateLimit(request, {
+      key: "leads-get",
+      limit: 60,
+      windowMs: 60_000,
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { data, error } = await supabase
       .from("leads")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select(
+        `
+        id,
+        name,
+        email,
+        interest,
+        location,
+        budget,
+        timeline,
+        score,
+        status,
+        pipeline_stage,
+        notes,
+        next_follow_up,
+        created_at
+        `
+      )
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(100);
 
     if (error) {
       console.error("Supabase GET error:", error);
@@ -44,8 +87,6 @@ export async function GET() {
   }
 }
 
-// POST /api/leads
-// Creates a new qualified lead
 export async function POST(request: Request) {
   try {
     if (!supabaseUrl || !serviceRoleKey) {
@@ -55,18 +96,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const rateLimitResponse = checkRateLimit(request, {
+      key: "leads-post",
+      limit: 10,
+      windowMs: 60_000,
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const body = await request.json();
 
-    const {
-      name,
-      email,
-      interest,
-      location,
-      budget,
-      timeline,
-      score,
-      status,
-    } = body;
+    const name = cleanText(body.name, 100);
+    const email = cleanText(body.email, 200).toLowerCase();
+    const interest = cleanText(body.interest, 200);
+    const location = cleanText(body.location, 150);
+    const budget = cleanText(body.budget, 100);
+    const timeline = cleanText(body.timeline, 100);
 
     if (
       !name ||
@@ -74,9 +121,7 @@ export async function POST(request: Request) {
       !interest ||
       !location ||
       !budget ||
-      !timeline ||
-      score === undefined ||
-      !status
+      !timeline
     ) {
       return NextResponse.json(
         { error: "Missing required lead information." },
@@ -84,52 +129,23 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof name !== "string" ||
-      typeof email !== "string" ||
-      typeof interest !== "string" ||
-      typeof location !== "string" ||
-      typeof budget !== "string" ||
-      typeof timeline !== "string" ||
-      typeof score !== "number" ||
-      typeof status !== "string"
-    ) {
-      return NextResponse.json(
-        { error: "Invalid lead data." },
-        { status: 400 }
-      );
-    }
-
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailPattern.test(email)) {
+    if (!isValidEmail(email)) {
       return NextResponse.json(
         { error: "Invalid email address." },
         { status: 400 }
       );
     }
 
-    if (score < 0 || score > 100) {
-      return NextResponse.json(
-        { error: "Lead score must be between 0 and 100." },
-        { status: 400 }
-      );
-    }
-
-    if (!["Hot", "Warm", "Cold"].includes(status)) {
-      return NextResponse.json(
-        { error: "Invalid lead status." },
-        { status: 400 }
-      );
-    }
+    const { score, status } =
+      calculateLeadQualification(budget, timeline);
 
     const { data, error } = await supabase
       .from("leads")
       .insert({
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        interest: interest.trim(),
-        location: location.trim(),
+        name,
+        email,
+        interest,
+        location,
         budget,
         timeline,
         score,
@@ -165,8 +181,6 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH /api/leads
-// Updates pipeline stage, notes and next follow-up
 export async function PATCH(request: Request) {
   try {
     if (!supabaseUrl || !serviceRoleKey) {
@@ -176,49 +190,23 @@ export async function PATCH(request: Request) {
       );
     }
 
+    const rateLimitResponse = checkRateLimit(request, {
+      key: "leads-patch",
+      limit: 30,
+      windowMs: 60_000,
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const body = await request.json();
 
-    const {
-      id,
-      pipeline_stage,
-      notes,
-      next_follow_up,
-    } = body;
+    const id = Number(body.id);
 
-    if (!id) {
+    if (!Number.isInteger(id) || id <= 0) {
       return NextResponse.json(
-        { error: "Lead ID is required." },
-        { status: 400 }
-      );
-    }
-
-    const allowedStages = [
-      "New",
-      "Contacted",
-      "Viewing Scheduled",
-      "Negotiating",
-      "Won",
-      "Lost",
-    ];
-
-    if (
-      pipeline_stage !== undefined &&
-      !allowedStages.includes(pipeline_stage)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid pipeline stage." },
-        { status: 400 }
-      );
-    }
-
-    if (
-      next_follow_up !== undefined &&
-      next_follow_up !== null &&
-      next_follow_up !== "" &&
-      Number.isNaN(Date.parse(next_follow_up))
-    ) {
-      return NextResponse.json(
-        { error: "Invalid follow-up date." },
+        { error: "Valid lead ID is required." },
         { status: 400 }
       );
     }
@@ -229,19 +217,50 @@ export async function PATCH(request: Request) {
       next_follow_up?: string | null;
     } = {};
 
-    if (pipeline_stage !== undefined) {
-      updates.pipeline_stage = pipeline_stage;
+    if (body.pipeline_stage !== undefined) {
+      const pipelineStage = cleanText(
+        body.pipeline_stage,
+        50
+      );
+
+      if (!allowedStages.includes(pipelineStage)) {
+        return NextResponse.json(
+          { error: "Invalid pipeline stage." },
+          { status: 400 }
+        );
+      }
+
+      updates.pipeline_stage = pipelineStage;
     }
 
-    if (notes !== undefined) {
-      updates.notes = String(notes).trim();
+    if (body.notes !== undefined) {
+      updates.notes = cleanText(body.notes, 2000);
     }
 
-    if (next_follow_up !== undefined) {
-      updates.next_follow_up =
-        next_follow_up === ""
-          ? null
-          : next_follow_up;
+    if (body.next_follow_up !== undefined) {
+      if (
+        body.next_follow_up === null ||
+        body.next_follow_up === ""
+      ) {
+        updates.next_follow_up = null;
+      } else {
+        const followUp = cleanText(
+          body.next_follow_up,
+          100
+        );
+
+        if (
+          !followUp ||
+          Number.isNaN(Date.parse(followUp))
+        ) {
+          return NextResponse.json(
+            { error: "Invalid follow-up date." },
+            { status: 400 }
+          );
+        }
+
+        updates.next_follow_up = followUp;
+      }
     }
 
     if (Object.keys(updates).length === 0) {
