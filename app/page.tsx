@@ -586,54 +586,83 @@ export default function Home() {
   }, [leads]);
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <div>
-            <p className="text-sm font-semibold tracking-[0.16em]">
-              MONETCORE
-            </p>
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="sticky top-0 z-40 border-b border-blue-100 bg-white/90 shadow-sm backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-sm font-black text-white shadow-md shadow-blue-200">
+              M
+            </div>
 
-            <p className="mt-1 text-xs text-neutral-500">
-              AI Lead Automation System
-            </p>
+            <div>
+              <p className="text-sm font-extrabold tracking-[0.18em] text-blue-700">
+                MONETCORE
+              </p>
+
+              <p className="mt-0.5 text-xs text-slate-500">
+                AI Lead Automation
+              </p>
+            </div>
           </div>
 
-          <button
-            onClick={() => {
-              setError("");
-              setShowForm(true);
-            }}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
-          >
-            + Add Lead
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 sm:inline-flex">
+              ● Automation Live
+            </span>
+
+            <button
+              onClick={() => {
+                setError("");
+                setShowForm(true);
+              }}
+              className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:shadow-xl"
+            >
+              + Add Lead
+            </button>
+          </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-7xl px-6 py-10">
-        <p className="text-sm text-neutral-500">
-          Real Estate Lead Dashboard
-        </p>
+        <div className="overflow-hidden rounded-3xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-7 py-8 text-white shadow-xl shadow-blue-100 sm:px-10 sm:py-10">
+          <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+            <div>
+              <div className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-50 backdrop-blur">
+                Real Estate Lead Dashboard
+              </div>
 
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight">
-          Sales Pipeline
-        </h1>
+              <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+                Sales Pipeline
+              </h1>
 
-        <p className="mt-3 max-w-3xl text-neutral-400">
-          Capture, qualify, prioritize, schedule follow-ups,
-          generate personalized AI communication, and track every
-          customer interaction.
-        </p>
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-blue-50 sm:text-base">
+                Capture, qualify, prioritize, schedule follow-ups,
+                generate personalized AI communication, and track every
+                customer interaction from one intelligent workspace.
+              </p>
+            </div>
+
+            <div className="grid min-w-[240px] grid-cols-2 gap-3 text-sm">
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur">
+                <p className="text-xs text-blue-100">AI Assisted</p>
+                <p className="mt-1 font-semibold">Follow-ups</p>
+              </div>
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur">
+                <p className="text-xs text-blue-100">Always On</p>
+                <p className="mt-1 font-semibold">Reminders</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {error && (
-          <div className="mt-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
             {error}
           </div>
         )}
 
         {successMessage && (
-          <div className="mt-6 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
             {successMessage}
           </div>
         )}
@@ -671,9 +700,9 @@ export default function Home() {
         </div>
 
         {/* Today's Action Queue */}
-        <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02]">
-          <div className="border-b border-white/10 px-6 py-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+        <section className="mt-10 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-lg shadow-slate-200/60">
+          <div className="border-b border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50 px-6 py-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               Today&apos;s Action Queue
             </p>
 
@@ -683,13 +712,13 @@ export default function Home() {
                   Follow-ups needing attention
                 </h2>
 
-                <p className="mt-2 text-sm text-neutral-500">
+                <p className="mt-2 text-sm text-slate-500">
                   Overdue leads appear first, followed by
                   follow-ups due today.
                 </p>
               </div>
 
-              <span className="text-sm text-neutral-500">
+              <span className="text-sm text-slate-500">
                 {actionQueue.length} action
                 {actionQueue.length === 1 ? "" : "s"}
               </span>
@@ -697,22 +726,22 @@ export default function Home() {
           </div>
 
           {loading ? (
-            <div className="px-6 py-10 text-sm text-neutral-500">
+            <div className="px-6 py-10 text-sm text-slate-500">
               Loading action queue...
             </div>
           ) : actionQueue.length === 0 ? (
             <div className="px-6 py-10">
-              <p className="font-medium text-neutral-300">
+              <p className="font-medium text-slate-700">
                 You&apos;re caught up.
               </p>
 
-              <p className="mt-2 text-sm text-neutral-500">
+              <p className="mt-2 text-sm text-slate-500">
                 There are no overdue or due-today follow-ups
                 right now.
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-white/10">
+            <div className="divide-y divide-slate-100">
               {actionQueue.map((lead) => {
                 const followUpState = getFollowUpState(
                   lead.next_follow_up
@@ -721,14 +750,14 @@ export default function Home() {
                 return (
                   <div
                     key={lead.id}
-                    className="flex flex-col justify-between gap-5 px-6 py-5 lg:flex-row lg:items-center"
+                    className="flex flex-col justify-between gap-5 px-6 py-5 transition hover:bg-blue-50/40 lg:flex-row lg:items-center"
                   >
                     <div className="flex gap-4">
                       <div
                         className={`mt-1 h-3 w-3 shrink-0 rounded-full ${
                           followUpState === "Overdue"
-                            ? "bg-red-400"
-                            : "bg-yellow-400"
+                            ? "bg-red-500"
+                            : "bg-amber-500"
                         }`}
                       />
 
@@ -747,11 +776,11 @@ export default function Home() {
                           />
                         </div>
 
-                        <p className="mt-2 text-sm text-neutral-400">
+                        <p className="mt-2 text-sm text-slate-600">
                           {lead.interest} • {lead.location}
                         </p>
 
-                        <p className="mt-2 text-sm text-neutral-500">
+                        <p className="mt-2 text-sm text-slate-500">
                           {lead.next_follow_up
                             ? `Scheduled: ${formatDisplayDate(
                                 lead.next_follow_up
@@ -759,7 +788,7 @@ export default function Home() {
                             : "No follow-up date"}
                         </p>
 
-                        <p className="mt-1 text-xs text-neutral-600">
+                        <p className="mt-1 text-xs text-slate-400">
                           Pipeline:{" "}
                           {lead.pipeline_stage || "New"}
                         </p>
@@ -768,7 +797,7 @@ export default function Home() {
 
                     <button
                       onClick={() => openLead(lead)}
-                      className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-neutral-200"
+                      className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
                     >
                       Open Lead
                     </button>
@@ -780,14 +809,14 @@ export default function Home() {
         </section>
 
         {/* Main Lead Table */}
-        <div className="mt-10 overflow-hidden rounded-2xl border border-white/10">
-          <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+        <div className="mt-10 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-lg shadow-slate-200/60">
+          <div className="flex items-center justify-between border-b border-blue-100 bg-gradient-to-r from-white to-blue-50/70 px-6 py-5">
             <div>
               <h2 className="text-lg font-semibold">
                 Lead Pipeline
               </h2>
 
-              <p className="mt-1 text-sm text-neutral-500">
+              <p className="mt-1 text-sm text-slate-500">
                 Click a lead to manage follow-up and communication.
               </p>
             </div>
@@ -795,24 +824,24 @@ export default function Home() {
             <button
               onClick={loadLeads}
               disabled={loading}
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-neutral-400"
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600"
             >
               {loading ? "Loading..." : "Refresh"}
             </button>
           </div>
 
           {loading ? (
-            <div className="px-6 py-16 text-center text-neutral-500">
+            <div className="px-6 py-16 text-center text-slate-500">
               Loading leads...
             </div>
           ) : leads.length === 0 ? (
-            <div className="px-6 py-16 text-center text-neutral-500">
+            <div className="px-6 py-16 text-center text-slate-500">
               No leads yet.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead className="border-b border-white/10 bg-white/[0.02] text-xs uppercase tracking-wider text-neutral-500">
+                <thead className="border-b border-blue-100 bg-blue-50/80 text-xs uppercase tracking-[0.12em] text-blue-700">
                   <tr>
                     <th className="px-6 py-4">Lead</th>
                     <th className="px-6 py-4">Interest</th>
@@ -823,24 +852,24 @@ export default function Home() {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-white/10">
+                <tbody className="divide-y divide-slate-100">
                   {leads.map((lead) => (
                     <tr
                       key={lead.id}
                       onClick={() => openLead(lead)}
-                      className="cursor-pointer transition hover:bg-white/[0.04]"
+                      className="cursor-pointer transition hover:bg-blue-50/70"
                     >
                       <td className="px-6 py-5">
                         <p className="font-medium">
                           {lead.name}
                         </p>
 
-                        <p className="mt-1 text-sm text-neutral-500">
+                        <p className="mt-1 text-sm text-slate-500">
                           {lead.email}
                         </p>
                       </td>
 
-                      <td className="px-6 py-5 text-sm text-neutral-300">
+                      <td className="px-6 py-5 text-sm text-slate-700">
                         {lead.interest}
                       </td>
 
@@ -876,8 +905,8 @@ export default function Home() {
 
       {/* Add Lead Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
-          <div className="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900 p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div className="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-blue-100 bg-white p-8 shadow-2xl shadow-blue-950/20">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-semibold">
                 Add a Lead
@@ -885,7 +914,7 @@ export default function Home() {
 
               <button
                 onClick={() => setShowForm(false)}
-                className="text-sm text-neutral-400"
+                className="text-sm text-slate-600"
               >
                 Close
               </button>
@@ -927,7 +956,7 @@ export default function Home() {
                 required
                 name="budget"
                 defaultValue=""
-                className="rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
               >
                 <option value="" disabled>
                   Select budget
@@ -958,7 +987,7 @@ export default function Home() {
                 required
                 name="timeline"
                 defaultValue=""
-                className="rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
               >
                 <option value="" disabled>
                   Select timeline
@@ -984,7 +1013,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-lg bg-white px-5 py-3 font-semibold text-black disabled:opacity-50"
+                className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving
                   ? "Saving..."
@@ -997,11 +1026,11 @@ export default function Home() {
 
       {/* Lead Detail */}
       {selectedLead && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 px-4 py-6">
-          <div className="mx-auto w-full max-w-6xl rounded-2xl border border-white/10 bg-neutral-900 p-8">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm">
+          <div className="mx-auto w-full max-w-6xl rounded-3xl border border-blue-100 bg-white p-8 shadow-2xl shadow-blue-950/20">
             <div className="flex items-start justify-between gap-6">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
                   Lead Record
                 </p>
 
@@ -1009,14 +1038,14 @@ export default function Home() {
                   {selectedLead.name}
                 </h2>
 
-                <p className="mt-2 text-neutral-400">
+                <p className="mt-2 text-slate-600">
                   {selectedLead.email}
                 </p>
               </div>
 
               <button
                 onClick={closeLead}
-                className="text-sm text-neutral-400"
+                className="text-sm text-slate-600"
               >
                 Close
               </button>
@@ -1044,15 +1073,15 @@ export default function Home() {
                   value={selectedLead.timeline}
                 />
 
-                <div className="rounded-xl border border-white/10 p-5">
-                  <p className="text-xs text-neutral-500">
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-5">
+                  <p className="text-xs text-slate-500">
                     QUALIFICATION
                   </p>
 
                   <div className="mt-3 flex items-center justify-between">
                     <p className="text-3xl font-semibold">
                       {selectedLead.score}
-                      <span className="text-base text-neutral-600">
+                      <span className="text-base text-slate-400">
                         {" "}
                         / 100
                       </span>
@@ -1066,12 +1095,10 @@ export default function Home() {
               </div>
 
               <div className="space-y-6">
-                <div className="rounded-2xl border border-white/10 p-6">
-                  <h3 className="font-semibold">
-                    Follow-up Management
-                  </h3>
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md">
+                  <div className="flex items-center gap-3"><div className="h-9 w-9 rounded-xl bg-blue-100 text-center text-xl leading-9">✓</div><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Next Action</p><h3 className="font-semibold text-slate-950">Follow-up Management</h3></div></div>
 
-                  <label className="mt-5 block text-sm text-neutral-300">
+                  <label className="mt-5 block text-sm text-slate-700">
                     Pipeline Stage
 
                     <select
@@ -1081,7 +1108,7 @@ export default function Home() {
                           event.target.value as PipelineStage
                         )
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                     >
                       {pipelineStages.map((stage) => (
                         <option
@@ -1094,7 +1121,7 @@ export default function Home() {
                     </select>
                   </label>
 
-                  <label className="mt-5 block text-sm text-neutral-300">
+                  <label className="mt-5 block text-sm text-slate-700">
                     Next Follow-up
 
                     <input
@@ -1105,11 +1132,11 @@ export default function Home() {
                           event.target.value
                         )
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                     />
                   </label>
 
-                  <label className="mt-5 block text-sm text-neutral-300">
+                  <label className="mt-5 block text-sm text-slate-700">
                     Agent Notes
 
                     <textarea
@@ -1118,14 +1145,14 @@ export default function Home() {
                         setNotes(event.target.value)
                       }
                       rows={5}
-                      className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
+                      className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                     />
                   </label>
 
                   <button
                     onClick={updateLead}
                     disabled={updating}
-                    className="mt-5 w-full rounded-lg bg-white px-5 py-3 font-semibold text-black disabled:opacity-50"
+                    className="mt-5 w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
                   >
                     {updating
                       ? "Saving..."
@@ -1133,21 +1160,19 @@ export default function Home() {
                   </button>
                 </div>
 
-                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/[0.04] p-6">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-300">
+                <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-6 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
                     AI Assistant
                   </p>
 
-                  <h3 className="mt-2 text-lg font-semibold">
-                    Personalized Follow-up
-                  </h3>
+                  <h3 className="mt-2 text-xl font-bold text-slate-950">Personalized Follow-up</h3><p className="mt-2 text-sm leading-6 text-slate-600">Generate a tailored message using the lead profile, pipeline stage and your latest notes.</p>
 
                   <button
                     onClick={generateAiFollowUp}
                     disabled={
                       generatingAi || sendingEmail
                     }
-                    className="mt-5 w-full rounded-lg border border-purple-400/30 bg-purple-500/10 px-5 py-3 font-semibold text-purple-200 disabled:opacity-50"
+                    className="mt-5 w-full rounded-lg border border-blue-200 bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
                   >
                     {generatingAi
                       ? "AI is generating..."
@@ -1158,7 +1183,7 @@ export default function Home() {
 
                   {aiMessage && (
                     <div className="mt-6 space-y-5">
-                      <label className="block text-sm text-neutral-300">
+                      <label className="block text-sm text-slate-700">
                         Email Subject
 
                         <input
@@ -1169,11 +1194,11 @@ export default function Home() {
                               event.target.value
                             )
                           }
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
+                          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                         />
                       </label>
 
-                      <label className="block text-sm text-neutral-300">
+                      <label className="block text-sm text-slate-700">
                         Email Message
 
                         <textarea
@@ -1184,14 +1209,14 @@ export default function Home() {
                             )
                           }
                           rows={10}
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-neutral-950 px-4 py-3"
+                          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                         />
                       </label>
 
                       <button
                         onClick={sendFollowUpEmail}
                         disabled={sendingEmail}
-                        className="w-full rounded-lg bg-green-500 px-5 py-3 font-semibold text-black disabled:opacity-50"
+                        className="w-full rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
                       >
                         {sendingEmail
                           ? "Sending Email..."
@@ -1204,16 +1229,14 @@ export default function Home() {
             </div>
 
             {/* Communication History */}
-            <div className="mt-10 border-t border-white/10 pt-8">
+            <div className="mt-10 border-t border-slate-200 pt-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                     Communication History
                   </p>
 
-                  <h3 className="mt-2 text-2xl font-semibold">
-                    Customer Timeline
-                  </h3>
+                  <h3 className="mt-2 text-2xl font-bold text-slate-950">Customer Timeline</h3>
                 </div>
 
                 <button
@@ -1225,7 +1248,7 @@ export default function Home() {
                   disabled={
                     communicationsLoading
                   }
-                  className="rounded-lg border border-white/10 px-4 py-2 text-sm text-neutral-400"
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600"
                 >
                   {communicationsLoading
                     ? "Loading..."
@@ -1234,11 +1257,11 @@ export default function Home() {
               </div>
 
               {communicationsLoading ? (
-                <div className="mt-6 rounded-xl border border-white/10 p-6 text-sm text-neutral-500">
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
                   Loading communication history...
                 </div>
               ) : communications.length === 0 ? (
-                <div className="mt-6 rounded-xl border border-white/10 p-6 text-sm text-neutral-500">
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
                   No communication has been recorded for this
                   lead yet.
                 </div>
@@ -1267,8 +1290,8 @@ function ActionBadge({
 }) {
   const styles =
     state === "Overdue"
-      ? "border-red-500/30 bg-red-500/10 text-red-300"
-      : "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
+      ? "border-red-200 bg-red-50 text-red-700"
+      : "border-amber-200 bg-amber-50 text-amber-700";
 
   return (
     <span
@@ -1289,15 +1312,15 @@ function CommunicationCard({
   );
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+    <div className="rounded-2xl border border-blue-100 bg-white shadow-sm p-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-300">
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
               {item.status}
             </span>
 
-            <span className="text-xs uppercase tracking-wider text-neutral-500">
+            <span className="text-xs uppercase tracking-wider text-slate-500">
               {item.channel} •{" "}
               {item.direction}
             </span>
@@ -1308,12 +1331,12 @@ function CommunicationCard({
               "No subject"}
           </h4>
 
-          <p className="mt-2 text-sm text-neutral-500">
+          <p className="mt-2 text-sm text-slate-500">
             To: {item.recipient}
           </p>
         </div>
 
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-slate-500">
           {Number.isNaN(
             created.getTime()
           )
@@ -1322,7 +1345,7 @@ function CommunicationCard({
         </p>
       </div>
 
-      <div className="mt-5 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-neutral-300">
+      <div className="mt-5 whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
         {item.message}
       </div>
     </div>
@@ -1336,15 +1359,67 @@ function StatCard({
   label: string;
   value: string;
 }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-      <p className="text-sm text-neutral-500">
-        {label}
-      </p>
+  const theme =
+    label === "Hot Leads"
+      ? {
+          accent: "bg-rose-500",
+          soft: "bg-rose-50",
+          text: "text-rose-700",
+          icon: "🔥",
+        }
+      : label === "Overdue"
+        ? {
+            accent: "bg-red-500",
+            soft: "bg-red-50",
+            text: "text-red-700",
+            icon: "!",
+          }
+        : label === "Due Today"
+          ? {
+              accent: "bg-amber-500",
+              soft: "bg-amber-50",
+              text: "text-amber-700",
+              icon: "◷",
+            }
+          : label === "Upcoming"
+            ? {
+                accent: "bg-cyan-500",
+                soft: "bg-cyan-50",
+                text: "text-cyan-700",
+                icon: "↗",
+              }
+            : label === "Won Deals"
+              ? {
+                  accent: "bg-emerald-500",
+                  soft: "bg-emerald-50",
+                  text: "text-emerald-700",
+                  icon: "✓",
+                }
+              : {
+                  accent: "bg-blue-600",
+                  soft: "bg-blue-50",
+                  text: "text-blue-700",
+                  icon: "◎",
+                };
 
-      <p className="mt-3 text-3xl font-semibold">
-        {value}
-      </p>
+  return (
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+      <div className={`absolute inset-x-0 top-0 h-1 ${theme.accent}`} />
+
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{label}</p>
+          <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+            {value}
+          </p>
+        </div>
+
+        <div
+          className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold ${theme.soft} ${theme.text}`}
+        >
+          {theme.icon}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1356,10 +1431,10 @@ function StatusBadge({
 }) {
   const styles =
     status === "Hot"
-      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      ? "border-red-200 bg-red-50 text-red-700"
       : status === "Warm"
-        ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
-        : "border-blue-500/30 bg-blue-500/10 text-blue-300";
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-blue-200 bg-blue-50 text-blue-700";
 
   return (
     <span
@@ -1376,7 +1451,7 @@ function PipelineBadge({
   stage: PipelineStage;
 }) {
   return (
-    <span className="rounded-full border border-white/10 px-3 py-1 text-xs">
+    <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
       {stage}
     </span>
   );
@@ -1389,7 +1464,7 @@ function FollowUpBadge({
 }) {
   if (!date) {
     return (
-      <span className="text-sm text-neutral-600">
+      <span className="text-sm text-slate-400">
         Not scheduled
       </span>
     );
@@ -1403,7 +1478,7 @@ function FollowUpBadge({
     )
   ) {
     return (
-      <span className="text-sm text-red-300">
+      <span className="text-sm text-red-600">
         Invalid date
       </span>
     );
@@ -1418,7 +1493,7 @@ function FollowUpBadge({
         {state}
       </span>
 
-      <p className="mt-1 text-xs text-neutral-500">
+      <p className="mt-1 text-xs text-slate-500">
         {parsedDate.toLocaleString()}
       </p>
     </div>
@@ -1433,12 +1508,12 @@ function DetailCard({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 p-4">
-      <p className="text-xs text-neutral-500">
+    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-blue-50/40 p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">
         {label}
       </p>
 
-      <p className="mt-2">
+      <p className="mt-2 font-semibold text-slate-900">
         {value}
       </p>
     </div>
@@ -1465,7 +1540,7 @@ function FormField({
         name={name}
         type={type}
         placeholder={placeholder}
-        className="mt-2 w-full rounded-xl bg-neutral-950 px-4 py-3"
+        className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
       />
     </label>
   );
