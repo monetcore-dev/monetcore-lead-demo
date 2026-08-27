@@ -10,8 +10,25 @@ const supabase = createClient(
   serviceRoleKey
 );
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const authHeader = request.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      return NextResponse.json(
+        { error: "Cron secret is not configured." },
+        { status: 500 }
+      );
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = Number(process.env.SMTP_PORT || 465);
     const smtpUser = process.env.SMTP_USER;
@@ -154,9 +171,7 @@ export async function GET() {
             </td>
             <td style="padding:10px;border-bottom:1px solid #ddd;">
               ${escapeHtml(
-                String(
-                  lead.score ?? "Not scored"
-                )
+                String(lead.score ?? "Not scored")
               )}
             </td>
             <td style="padding:10px;border-bottom:1px solid #ddd;">
@@ -193,24 +208,12 @@ export async function GET() {
           >
             <thead>
               <tr style="background:#f4f4f4;">
-                <th style="padding:10px;text-align:left;">
-                  Lead
-                </th>
-                <th style="padding:10px;text-align:left;">
-                  Interest
-                </th>
-                <th style="padding:10px;text-align:left;">
-                  Location
-                </th>
-                <th style="padding:10px;text-align:left;">
-                  Stage
-                </th>
-                <th style="padding:10px;text-align:left;">
-                  Score
-                </th>
-                <th style="padding:10px;text-align:left;">
-                  Follow-up
-                </th>
+                <th style="padding:10px;text-align:left;">Lead</th>
+                <th style="padding:10px;text-align:left;">Interest</th>
+                <th style="padding:10px;text-align:left;">Location</th>
+                <th style="padding:10px;text-align:left;">Stage</th>
+                <th style="padding:10px;text-align:left;">Score</th>
+                <th style="padding:10px;text-align:left;">Follow-up</th>
               </tr>
             </thead>
 
@@ -233,12 +236,7 @@ export async function GET() {
             "
           />
 
-          <p
-            style="
-              font-size:12px;
-              color:#666;
-            "
-          >
+          <p style="font-size:12px;color:#666;">
             Automated reminder from Monetcore System Solutions.
           </p>
         </div>
@@ -343,9 +341,7 @@ Open the Monetcore Lead Automation dashboard to review and follow up.
   `.trim();
 }
 
-function escapeHtml(
-  value: string
-) {
+function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
